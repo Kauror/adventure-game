@@ -1,0 +1,336 @@
+/*
+ * Full-screen landscape browser game baseline.
+ *
+ * Targets are phones first (iOS Safari, Android Chrome), so the page must never
+ * scroll, rubber-band, zoom on double-tap, or assume a mouse exists.
+ */
+
+:root {
+  --ui-safe-top: env(safe-area-inset-top, 0px);
+  --ui-safe-right: env(safe-area-inset-right, 0px);
+  --ui-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ui-safe-left: env(safe-area-inset-left, 0px);
+
+  --colour-backdrop: #0d1014;
+  --colour-text: #e8eef5;
+  --colour-panel: rgb(0 0 0 / 55%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--colour-backdrop);
+  color: var(--colour-text);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+
+  /* No text selection or iOS callout on a game surface. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+
+  /* Do not let iOS inflate text when the device rotates. */
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  /* Use the dynamic viewport where supported: iOS toolbars change 100vh. */
+  height: 100dvh;
+  width: 100dvw;
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+
+  /* The canvas owns all gestures; the browser must not scroll, pan or zoom. */
+  touch-action: none;
+}
+
+/*
+ * UI overlay. Transparent to input by default so it never steals touches from
+ * the game; individual controls opt back in with pointer-events: auto.
+ */
+#ui-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/*
+ * The joystick is purely a picture of input state. It is never interactive —
+ * the canvas captures the pointer — so it must not intercept touches.
+ */
+#joystick-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ui-joystick {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 112px;
+  height: 112px;
+  border: 2px solid rgb(255 255 255 / 30%);
+  border-radius: 50%;
+  background: rgb(0 0 0 / 25%);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  will-change: transform;
+}
+
+.ui-joystick--active {
+  opacity: 1;
+}
+
+.ui-joystick__knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 52px;
+  height: 52px;
+  margin: -26px 0 0 -26px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 55%);
+  will-change: transform;
+}
+
+.ui-layer {
+  position: absolute;
+  inset: 0;
+  padding: var(--ui-safe-top) var(--ui-safe-right) var(--ui-safe-bottom) var(--ui-safe-left);
+}
+
+/* Development coordinate readout. Replaced by the real HUD in a later stage. */
+.ui-readout {
+  position: absolute;
+  top: calc(var(--ui-safe-top) + 8px);
+  left: calc(var(--ui-safe-left) + 8px);
+  min-width: 190px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--colour-panel);
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-readout__title {
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.ui-readout__row {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.ui-readout__label {
+  opacity: 0.7;
+}
+
+.ui-readout__hint {
+  margin-top: 6px;
+  opacity: 0.6;
+}
+
+.ui-readout__probe {
+  margin-top: 2px;
+  opacity: 0.45;
+}
+
+/* Shown only while the device is held in portrait. */
+.ui-orientation-notice {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--colour-backdrop);
+  pointer-events: auto;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+/*
+ * Right-thumb action buttons.
+ *
+ * The overlay is pointer-transparent, so these opt back in. Sized well above
+ * the minimum comfortable touch target because they are pressed in a hurry, by
+ * small hands, while the other thumb is busy steering.
+ */
+.ui-action {
+  position: absolute;
+  width: 96px;
+  height: 96px;
+  border: 2px solid rgb(255 255 255 / 35%);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 12%);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ui-action:active {
+  background: rgb(255 255 255 / 30%);
+  transform: scale(0.94);
+}
+
+.ui-action--dodge {
+  right: calc(var(--ui-safe-right) + 24px);
+  bottom: calc(var(--ui-safe-bottom) + 24px);
+}
+
+/*
+ * Charge meter. Sits above the action buttons, on the right, where the thumb
+ * that is charging can see it without the hand covering it.
+ */
+.ui-charge {
+  position: absolute;
+  right: calc(var(--ui-safe-right) + 24px);
+  bottom: calc(var(--ui-safe-bottom) + 136px);
+  width: 168px;
+  opacity: 0;
+  transition: opacity 100ms ease-out;
+}
+
+.ui-charge--active {
+  opacity: 1;
+}
+
+.ui-charge__track {
+  position: relative;
+  height: 14px;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: 7px;
+  background: rgb(0 0 0 / 45%);
+}
+
+/* The sweet spot is visible on the track, never hidden. */
+.ui-charge__band {
+  position: absolute;
+  top: 0;
+  height: 100%;
+}
+
+.ui-charge__band--great {
+  background: rgb(255 255 255 / 22%);
+}
+
+.ui-charge__band--perfect {
+  background: rgb(255 190 70 / 65%);
+}
+
+.ui-charge__fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: rgb(120 220 255 / 55%);
+  will-change: transform;
+}
+
+.ui-action--attack {
+  right: calc(var(--ui-safe-right) + 136px);
+  bottom: calc(var(--ui-safe-bottom) + 24px);
+}
+
+/*
+ * Player health, as countable pips rather than a number — the youngest players
+ * cannot read yet, and how alive you are is the one thing that must never be
+ * text.
+ */
+.ui-hearts {
+  position: absolute;
+  top: calc(var(--ui-safe-top) + 10px);
+  right: calc(var(--ui-safe-right) + 12px);
+  display: flex;
+  gap: 6px;
+}
+
+.ui-heart {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgb(255 255 255 / 45%);
+  border-radius: 5px;
+  background: rgb(230 70 90 / 90%);
+}
+
+.ui-heart--empty {
+  background: rgb(0 0 0 / 35%);
+}
+
+/*
+ * The secret handle for the debug tools.
+ *
+ * Invisible, small, and in the one corner no control uses. It is a real element
+ * so it swallows its own taps — otherwise every tap would also nudge the
+ * joystick on the canvas underneath.
+ */
+.ui-debug-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 56px;
+  height: 56px;
+  pointer-events: auto;
+}
+
+.ui-readout__device {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgb(255 255 255 / 15%);
+  opacity: 0.7;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+/* Opens the in-page console — the only way to read a phone's errors here. */
+.ui-readout__button {
+  margin-top: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 10%);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  pointer-events: auto;
+  touch-action: manipulation;
+  cursor: pointer;
+}

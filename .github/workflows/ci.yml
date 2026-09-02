@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    name: Format, lint, typecheck, test, build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Binary game assets are stored in Git LFS (see .gitattributes).
+          lfs: true
+
+      # Must come before setup-node so the pnpm cache can be resolved.
+      # The version is taken from "packageManager" in package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Fails on formatting, lint, type, test or production-build errors.
+      - run: pnpm check

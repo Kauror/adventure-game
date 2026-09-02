@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+pnpm-lock.yaml
+
+# Authoritative specification documents — formatted by hand, not by Prettier.
+PLAN_v2.1.md
+GAME_ROADMAP_v1.md

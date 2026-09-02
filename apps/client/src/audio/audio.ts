@@ -1,0 +1,317 @@
+/**
+ * Procedural sound.
+ *
+ * Every sound here is synthesised with WebAudio rather than loaded from a file.
+ * That is a deliberate choice for this stage, not a shortcut: no asset exists to
+ * license or attribute yet (`assets/ATTRIBUTION.md` is still empty), nothing has
+ * to download before the first hit lands, and a proving toy needs *timing*
+ * feedback far more than it needs good samples. Real SFX replace these with the
+ * art pass.
+ *
+ * Two mobile rules shape the implementation (PLAN §27, §6):
+ *
+ *  - the AudioContext may only be created and resumed **inside a user gesture**,
+ *    or iOS leaves it suspended forever — and note that a *gamepad* button is
+ *    not a gesture in any browser, so a controller-only player needs coaxing
+ *    (`tryUnlock`) or they get a silent game with no error to explain it;
+ *  - it must be resumed again whenever the page comes back, because a phone
+ *    locking mid-session is the normal case, not an edge case.
+ *
+ * Audio is reinforcement only. PLAN §11 forbids it being the sole channel for
+ * anything precise, because mobile audio latency is too variable to trust.
+ */
+
+export type SwingSound = 'light' | 'lightFinisher' | 'heavyGood' | 'heavyGreat' | 'heavyPerfect';
+
+export interface GameAudio {
+  /** True once the browser has actually let us make noise. */
+  readonly isReady: () => boolean;
+  /**
+   * Nudges a suspended context awake. Safe and cheap to call every frame: it
+   * throttles itself and does nothing once audio is running.
+   *
+   * Exists for controller players, whose button presses never count as user
+   * activation and so never trigger the listeners below.
+   */
+  readonly tryUnlock: () => void;
+  readonly swing: (sound: SwingSound) => void;
+  readonly playerHurt: () => void;
+  readonly dodge: () => void;
+  readonly enemyDeath: () => void;
+  /** Starts the rising charge tone. */
+  readonly chargeStart: () => void;
+  /** Tracks the charge; chimes once when the sweet spot is entered. */
+  readonly chargeUpdate: (progress: number, inSweetSpot: boolean) => void;
+  readonly chargeStop: () => void;
+  readonly dispose: () => void;
+}
+
+interface Voices {
+  readonly context: AudioContext;
+  readonly master: GainNode;
+  readonly noise: AudioBuffer;
+}
+
+function createNoiseBuffer(context: AudioContext): AudioBuffer {
+  const length = Math.floor(context.sampleRate * 0.4);
+  const buffer = context.createBuffer(1, length, context.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i += 1) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  return buffer;
+}
+
+export function createAudio(): GameAudio {
+  let voices: Voices | null = null;
+  let chargeOscillator: OscillatorNode | null = null;
+  let chargeGain: GainNode | null = null;
+  let sweetSpotChimed = false;
+
+  const start = (): void => {
+    if (voices !== null) {
+      return;
+    }
+
+    const Ctor =
+      window.AudioContext ??
+      (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (Ctor === undefined) {
+      return; // No WebAudio: the game is still perfectly playable in silence.
+    }
+
+    try {
+      const context = new Ctor();
+      const master = context.createGain();
+      // Comfortably below full scale: this is a game children hold to their face.
+      master.gain.value = 0.25;
+      master.connect(context.destination);
+      voices = { context, master, noise: createNoiseBuffer(context) };
+    } catch {
+      voices = null;
+    }
+  };
+
+  const resume = (): void => {
+    start();
+    if (voices !== null && voices.context.state === 'suspended') {
+      void voices.context.resume();
+    }
+  };
+
+  // The first touch or key press is what unlocks audio on iOS.
+  const unlock = (): void => {
+    resume();
+  };
+  window.addEventListener('pointerdown', unlock, { passive: true });
+  window.addEventListener('keydown', unlock, { passive: true });
+
+  // A controller being plugged in is at least a hint that someone is there.
+  const onGamepadConnected = (): void => {
+    resume();
+  };
+  window.addEventListener('gamepadconnected', onGamepadConnected);
+
+  // Coming back from a locked phone leaves the context suspended (PLAN §6).
+  const onVisibility = (): void => {
+    if (document.visibilityState === 'visible') {
+      resume();
+    }
+  };
+  document.addEventListener('visibilitychange', onVisibility);
+
+  /** A shaped tone. `sweepTo` bends the pitch, which is most of the character. */
+  const tone = (
+    frequency: number,
+    seconds: number,
+    {
+      type = 'sine' as OscillatorType,
+      gain = 1,
+      sweepTo,
+      delay = 0,
+    }: { type?: OscillatorType; gain?: number; sweepTo?: number; delay?: number } = {},
+  ): void => {
+    if (voices === null) {
+      return;
+    }
+    const { context, master } = voices;
+    const at = context.currentTime + delay;
+
+    const oscillator = context.createOscillator();
+    const envelope = context.createGain();
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, at);
+    if (sweepTo !== undefined) {
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, sweepTo), at + seconds);
+    }
+
+    // A quick attack and an exponential tail: percussive without clicking.
+    envelope.gain.setValueAtTime(0.0001, at);
+    envelope.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain), at + 0.008);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, at + seconds);
+
+    oscillator.connect(envelope);
+    envelope.connect(master);
+    oscillator.start(at);
+    oscillator.stop(at + seconds + 0.02);
+  };
+
+  /** Filtered noise — the body of an impact. */
+  const thump = (seconds: number, cutoffHz: number, gain: number): void => {
+    if (voices === null) {
+      return;
+    }
+    const { context, master, noise } = voices;
+    const at = context.currentTime;
+
+    const source = context.createBufferSource();
+    source.buffer = noise;
+
+    const filter = context.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(cutoffHz, at);
+
+    const envelope = context.createGain();
+    envelope.gain.setValueAtTime(gain, at);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, at + seconds);
+
+    source.connect(filter);
+    filter.connect(envelope);
+    envelope.connect(master);
+    source.start(at);
+    source.stop(at + seconds + 0.02);
+  };
+
+  let lastUnlockAttemptMs = Number.NEGATIVE_INFINITY;
+
+  return {
+    isReady: () => voices !== null && voices.context.state === 'running',
+
+    tryUnlock: () => {
+      if (voices !== null && voices.context.state === 'running') {
+        return;
+      }
+      // Retrying every frame would queue a resume() promise per frame while the
+      // browser keeps refusing; once a second is plenty to catch the moment
+      // permission is granted.
+      const now = performance.now();
+      if (now - lastUnlockAttemptMs < 1000) {
+        return;
+      }
+      lastUnlockAttemptMs = now;
+      resume();
+    },
+
+    swing: (sound) => {
+      resume();
+      switch (sound) {
+        case 'light':
+          tone(420, 0.09, { type: 'square', gain: 0.18, sweepTo: 260 });
+          thump(0.07, 1600, 0.16);
+          break;
+        case 'lightFinisher':
+          tone(330, 0.16, { type: 'square', gain: 0.26, sweepTo: 180 });
+          thump(0.12, 1300, 0.3);
+          break;
+        case 'heavyGood':
+          tone(180, 0.18, { type: 'triangle', gain: 0.3, sweepTo: 90 });
+          thump(0.14, 900, 0.34);
+          break;
+        case 'heavyGreat':
+          tone(160, 0.24, { type: 'triangle', gain: 0.38, sweepTo: 70 });
+          thump(0.18, 800, 0.44);
+          tone(760, 0.1, { type: 'sine', gain: 0.16, delay: 0.02 });
+          break;
+        case 'heavyPerfect':
+          // Distinctly brighter and longer, so PERFECT is unmistakable by ear.
+          tone(140, 0.32, { type: 'triangle', gain: 0.45, sweepTo: 55 });
+          thump(0.22, 700, 0.5);
+          tone(1050, 0.16, { type: 'sine', gain: 0.22, delay: 0.02 });
+          tone(1570, 0.12, { type: 'sine', gain: 0.14, delay: 0.05 });
+          break;
+      }
+    },
+
+    playerHurt: () => {
+      resume();
+      tone(220, 0.22, { type: 'sawtooth', gain: 0.3, sweepTo: 110 });
+      thump(0.16, 500, 0.3);
+    },
+
+    dodge: () => {
+      resume();
+      // Airy and upward: nothing like an impact, so it never reads as a hit.
+      tone(700, 0.14, { type: 'sine', gain: 0.14, sweepTo: 1300 });
+    },
+
+    enemyDeath: () => {
+      resume();
+      tone(300, 0.5, { type: 'sawtooth', gain: 0.32, sweepTo: 60 });
+      thump(0.35, 600, 0.4);
+    },
+
+    chargeStart: () => {
+      resume();
+      if (voices === null || chargeOscillator !== null) {
+        return;
+      }
+      const { context, master } = voices;
+
+      chargeOscillator = context.createOscillator();
+      chargeGain = context.createGain();
+      chargeOscillator.type = 'sawtooth';
+      chargeOscillator.frequency.setValueAtTime(120, context.currentTime);
+      chargeGain.gain.setValueAtTime(0.0001, context.currentTime);
+      chargeGain.gain.exponentialRampToValueAtTime(0.07, context.currentTime + 0.05);
+
+      chargeOscillator.connect(chargeGain);
+      chargeGain.connect(master);
+      chargeOscillator.start();
+      sweetSpotChimed = false;
+    },
+
+    chargeUpdate: (progress, inSweetSpot) => {
+      if (voices === null || chargeOscillator === null) {
+        return;
+      }
+      // Rising pitch tracks the meter, so the sweet spot can be *heard*
+      // approaching while the child is watching the enemy instead of the HUD.
+      chargeOscillator.frequency.setTargetAtTime(
+        120 + progress * 260,
+        voices.context.currentTime,
+        0.03,
+      );
+
+      if (inSweetSpot && !sweetSpotChimed) {
+        sweetSpotChimed = true;
+        tone(1320, 0.09, { type: 'sine', gain: 0.16 });
+      }
+    },
+
+    chargeStop: () => {
+      if (voices === null || chargeOscillator === null || chargeGain === null) {
+        return;
+      }
+      const { context } = voices;
+      chargeGain.gain.cancelScheduledValues(context.currentTime);
+      chargeGain.gain.setValueAtTime(chargeGain.gain.value, context.currentTime);
+      chargeGain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.05);
+      chargeOscillator.stop(context.currentTime + 0.08);
+
+      chargeOscillator = null;
+      chargeGain = null;
+      sweetSpotChimed = false;
+    },
+
+    dispose: () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('gamepadconnected', onGamepadConnected);
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (voices !== null) {
+        void voices.context.close();
+        voices = null;
+      }
+    },
+  };
+}

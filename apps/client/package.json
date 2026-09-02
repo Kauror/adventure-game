@@ -1,0 +1,27 @@
+{
+  "name": "@adventure/client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:host": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@adventure/content": "workspace:*",
+    "@adventure/game-core": "workspace:*",
+    "@babylonjs/core": "^9.23.0",
+    "eruda": "^3.4.3",
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  }
+}

@@ -1,0 +1,86 @@
+import { TEST_ARENA_ID, regions } from '@adventure/content';
+import {
+  isWalkableTile,
+  isWalkableWorld,
+  parseRegion,
+  regionSizeMetres,
+  spawnPoint,
+  tileAt,
+  findObjects,
+} from '@adventure/game-core';
+import { describe, expect, it } from 'vitest';
+
+import { et } from '../src/i18n/et';
+
+/**
+ * Proves the acceptance criterion "map data can be loaded from structured
+ * content": the shipped region is real data, parsed and validated by game-core,
+ * not something hand-built in the client.
+ */
+const region = parseRegion(regions[TEST_ARENA_ID]);
+
+describe('test arena content', () => {
+  it('parses the shipped region', () => {
+    expect(region.id).toBe('test-arena');
+    expect(region.width).toBe(20);
+    expect(region.height).toBe(14);
+    expect(regionSizeMetres(region)).toEqual({ width: 20, depth: 14 });
+  });
+
+  it('is not square, so a width/height transposition would be caught', () => {
+    expect(region.width).not.toBe(region.height);
+  });
+
+  it('has its display name in the Estonian catalogue', () => {
+    expect(Object.keys(et)).toContain(region.nameKey);
+  });
+
+  it('is sealed by an impassable border on all four edges', () => {
+    for (let col = 0; col < region.width; col += 1) {
+      expect(isWalkableTile(region, col, 0)).toBe(false);
+      expect(isWalkableTile(region, col, region.height - 1)).toBe(false);
+    }
+    for (let row = 0; row < region.height; row += 1) {
+      expect(isWalkableTile(region, 0, row)).toBe(false);
+      expect(isWalkableTile(region, region.width - 1, row)).toBe(false);
+    }
+  });
+
+  it('contains interior obstacles as well as the border', () => {
+    let interiorWalls = 0;
+    for (let row = 1; row < region.height - 1; row += 1) {
+      for (let col = 1; col < region.width - 1; col += 1) {
+        if (tileAt(region, col, row)?.walkable === false) {
+          interiorWalls += 1;
+        }
+      }
+    }
+    expect(interiorWalls).toBeGreaterThan(0);
+  });
+
+  it('includes a raised platform as the elevation example', () => {
+    const elevated: number[] = [];
+    for (let row = 0; row < region.height; row += 1) {
+      for (let col = 0; col < region.width; col += 1) {
+        const tile = tileAt(region, col, row);
+        if (tile !== undefined && tile.elevation > 0) {
+          elevated.push(tile.elevation);
+          expect(tile.walkable).toBe(true);
+        }
+      }
+    }
+    expect(elevated.length).toBeGreaterThan(0);
+  });
+
+  it('places a player spawn and enemy spawns on walkable ground', () => {
+    const player = spawnPoint(region, 'player-spawn');
+    expect(player).toBeDefined();
+    expect(isWalkableWorld(region, player!.x, player!.z)).toBe(true);
+
+    const enemies = findObjects(region, 'enemy-spawn');
+    expect(enemies.length).toBeGreaterThan(0);
+    for (const enemy of enemies) {
+      expect(isWalkableTile(region, enemy.tile.col, enemy.tile.row)).toBe(true);
+    }
+  });
+});

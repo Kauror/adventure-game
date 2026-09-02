@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="et">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Placeholder only: the real title is set from the i18n catalogue at boot. -->
+    <title>Adventure</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game-canvas"></canvas>
+      <!--
+        The joystick lives outside the Preact root: it is redrawn every frame by
+        the input layer writing a transform, and reconciling the HUD at 60 fps
+        on a phone would waste the frame budget.
+      -->
+      <div id="joystick-layer"></div>
+      <div id="ui-root"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

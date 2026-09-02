@@ -1,0 +1,33 @@
+{
+  "name": "adventure-game",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Private browser co-op adventure game for a small group of children. Stage 0A-1: client foundation.",
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @adventure/client dev",
+    "dev:host": "pnpm --filter @adventure/client dev:host",
+    "build": "pnpm --filter @adventure/client build",
+    "preview": "pnpm --filter @adventure/client preview",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.9.1",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.11.0",
+    "prettier": "^3.9.6",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.68.0"
+  }
+}

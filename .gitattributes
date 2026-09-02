@@ -1,0 +1,38 @@
+# Normalise text files; keep LF in the repository.
+* text=auto eol=lf
+
+# ---------------------------------------------------------------------------
+# Git LFS policy (see docs/decisions/0001-foundation-stack.md)
+#
+# Binary game assets go to LFS. They are large, they never diff usefully, and
+# rewriting history to extract them later is miserable. This must be in place
+# BEFORE the first .glb lands.
+#
+# Deliberately NOT global for images/audio: small UI icons inside apps/*/src
+# should stay as ordinary git objects. Bulk image/audio patterns are therefore
+# scoped to assets/.
+# ---------------------------------------------------------------------------
+
+# Always LFS — these formats are never small.
+*.glb filter=lfs diff=lfs merge=lfs -text
+*.ktx2 filter=lfs diff=lfs merge=lfs -text
+*.basis filter=lfs diff=lfs merge=lfs -text
+*.fbx filter=lfs diff=lfs merge=lfs -text
+*.blend filter=lfs diff=lfs merge=lfs -text
+*.blend1 filter=lfs diff=lfs merge=lfs -text
+
+# Bulk assets only.
+assets/**/*.png filter=lfs diff=lfs merge=lfs -text
+assets/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+assets/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
+assets/**/*.webp filter=lfs diff=lfs merge=lfs -text
+assets/**/*.tga filter=lfs diff=lfs merge=lfs -text
+assets/**/*.psd filter=lfs diff=lfs merge=lfs -text
+assets/**/*.bin filter=lfs diff=lfs merge=lfs -text
+assets/**/*.wav filter=lfs diff=lfs merge=lfs -text
+assets/**/*.mp3 filter=lfs diff=lfs merge=lfs -text
+assets/**/*.ogg filter=lfs diff=lfs merge=lfs -text
+assets/**/*.m4a filter=lfs diff=lfs merge=lfs -text
+
+# .gltf is JSON and stays a normal text file (its .bin companion is LFS above).
+*.gltf text

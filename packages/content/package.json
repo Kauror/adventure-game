@@ -1,0 +1,16 @@
+{
+  "name": "@adventure/content",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Authored game content. Data only — no game rules, no engine code.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

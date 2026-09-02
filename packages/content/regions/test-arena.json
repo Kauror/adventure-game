@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "test-arena",
+  "nameKey": "region.testArena.name",
+  "legend": {
+    "#": { "walkable": false, "elevation": 0, "terrain": "wall" },
+    ".": { "walkable": true, "elevation": 0, "terrain": "floor" },
+    "+": { "walkable": true, "elevation": 1, "terrain": "platform" }
+  },
+  "rows": [
+    "####################",
+    "#..................#",
+    "#..####........###.#",
+    "#..#..#............#",
+    "#..#..#....++++....#",
+    "#..........++++....#",
+    "#..........++++....#",
+    "#..........++++....#",
+    "#.......##.........#",
+    "#.......##.........#",
+    "#..................#",
+    "#...####...........#",
+    "#..................#",
+    "####################"
+  ],
+  "objects": [
+    { "type": "player-spawn", "id": "spawn-player", "tile": { "col": 5, "row": 6 } },
+    { "type": "enemy-spawn", "id": "spawn-enemy-east", "tile": { "col": 15, "row": 9 } },
+    { "type": "enemy-spawn", "id": "spawn-enemy-south", "tile": { "col": 4, "row": 12 } }
+  ]
+}
