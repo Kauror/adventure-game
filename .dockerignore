@@ -1,0 +1,27 @@
+# The build context is the repository root (the Dockerfile lives in
+# deploy/stage0a/ but needs the whole workspace).
+
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+coverage/
+**/coverage/
+.vite/
+*.tsbuildinfo
+
+# Excluded deliberately: the image must not be able to read the commit, so the
+# deploy passes BUILD_SHA in as a build argument and an untagged build is
+# visibly `unknown` rather than quietly wrong.
+.git/
+.github/
+
+.env
+.env.*
+!.env.example
+*.local
+
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

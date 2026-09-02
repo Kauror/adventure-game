@@ -15,6 +15,7 @@ import type { AttackSwing } from '@adventure/game-core';
 import { createAudio } from './audio/audio';
 import type { SwingSound } from './audio/audio';
 import { assistFromLocation } from './config/assist';
+import { buildLabel } from './config/buildInfo';
 import { createGameCamera } from './game/camera';
 import { createEnemyActor } from './game/enemy';
 import { createEngine } from './game/createEngine';
@@ -67,6 +68,11 @@ function requestedJoystickOrigin(): JoystickOrigin {
  */
 function start(): () => void {
   document.title = t('app.title');
+
+  // Logged before anything can fail. The debug overlay shows this too, but the
+  // overlay needs a booted game; a phone that renders nothing still has an
+  // in-page console, and this is the line that says which build broke.
+  console.info(`adventure build ${buildLabel()}`);
 
   // Content is data; game-core validates it. A malformed region fails loudly
   // here rather than producing a subtly wrong world.

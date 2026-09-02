@@ -1,0 +1,54 @@
+# Stage 0A-1 static client on KOCorp.
+#
+# One service. There is no server, no database and no persistence in Stage 0A
+# (ADR 0004), so there is nothing here to lose and nothing to migrate — the
+# container is disposable and the image tag is the only state that matters.
+#
+# Isolation follows PLAN §22: dedicated network, no Docker socket, no host
+# mounts, no privileged mode, no capabilities.
+
+name: adventure-stage0a
+
+services:
+  adventure-web:
+    # Never `latest`: the tag is the commit, so what is running is always
+    # traceable and the previous tag is always a working rollback.
+    image: ${ADVENTURE_IMAGE:?set ADVENTURE_IMAGE to adventure-web:<sha>}
+    container_name: adventure-web
+    restart: unless-stopped
+
+    networks:
+      - adventure-net
+
+    # Published on the LAN because the existing KOCorp tunnel already routes two
+    # of its three applications by host IP, and restructuring a working
+    # production cloudflared container to gain container-to-container naming is
+    # a bigger risk than one more port. See README.md.
+    ports:
+      - '${ADVENTURE_HOST_PORT:-8091}:8080'
+
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://127.0.0.1:8080/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+networks:
+  adventure-net:
+    name: adventure-net

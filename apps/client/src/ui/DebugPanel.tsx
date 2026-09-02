@@ -1,5 +1,6 @@
 import type { EnemyState, Region } from '@adventure/game-core';
 
+import { buildLabel } from '../config/buildInfo';
 import { GAME_CAMERA } from '../game/camera';
 import type { Diagnostics, LiveDiagnostics } from '../game/diagnostics';
 import type { PlayerSnapshot } from '../game/player';
@@ -55,6 +56,12 @@ export function DebugPanel({
     <div class="ui-readout">
       <div class="ui-readout__title">{t('dev.stageLabel')}</div>
 
+      {/*
+        First line on purpose. When a bug report is "it doesn't work", the very
+        first question is which build that phone is running — Safari is perfectly
+        capable of serving a week-old bundle from cache.
+      */}
+      <Row labelKey="debug.build" value={buildLabel()} />
       <Row labelKey="debug.fps" value={`${live.fps} (${live.frameMs.toFixed(1)} ms)`} />
       <Row labelKey="debug.viewport" value={`${live.viewport} → ${live.buffer}`} />
       <Row

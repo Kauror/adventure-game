@@ -7,7 +7,7 @@
 export const et = {
   'app.title': 'Seiklusmäng',
 
-  'dev.stageLabel': 'Etapp 0A-1 · ülesanne 0A.2',
+  'dev.stageLabel': 'Etapp 0A-1 · ülesanne 0A.11',
   // Deliberate Estonian character probe: proves the whole chain (source file ->
   // bundle -> DOM -> font) is UTF-8 clean. Asserted in tests/i18n.test.ts.
   'dev.charsetProbe': 'õ ä ö ü Õ Ä Ö Ü',
@@ -40,6 +40,8 @@ export const et = {
   'debug.viewport': 'Vaade',
   'debug.camera': 'Kaamera',
   'debug.console': 'Ava konsool',
+  // Which build this phone actually loaded. See config/buildInfo.ts.
+  'debug.build': 'Versioon',
 
   'action.dodge': 'Põige',
   'action.attack': 'Löök',

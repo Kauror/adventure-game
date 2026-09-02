@@ -1,0 +1,11 @@
+{
+  // The Vite config is Node code, not browser code, and it is the only file in
+  // this package that is. It gets its own project so that `types: ["node"]`
+  // stays out of `src` — client source must never reach for `process` or a
+  // node: import, and the compiler is the cheapest place to enforce that.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["vite.config.ts"]
+}
