@@ -8,13 +8,14 @@
     "dev:host": "vite --host",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit && tsc --noEmit --project tsconfig.node.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit --project tsconfig.test.json && tsc --noEmit --project tsconfig.node.json",
     "test": "vitest run"
   },
   "dependencies": {
     "@adventure/content": "workspace:*",
     "@adventure/game-core": "workspace:*",
     "@babylonjs/core": "^9.23.0",
+    "@babylonjs/loaders": "^9.23.0",
     "eruda": "^3.4.3",
     "preact": "^10.29.8"
   },

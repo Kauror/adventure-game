@@ -35,26 +35,29 @@ import {
   stepMovement,
   worldToTile,
 } from '@adventure/game-core';
-import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { Color3 } from '@babylonjs/core/Maths/math.color';
-import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
 import type { Scene } from '@babylonjs/core/scene';
 
-import '@babylonjs/core/Meshes/Builders/boxBuilder';
-
+import type { Character } from './character';
+import { clipFor } from './characterClips';
 import { createHammer } from './hammer';
 
-/** Placeholder proportions until the real rig arrives at 0A.3. */
-const BODY_HEIGHT_METRES = 1.8;
-const BODY_WIDTH_METRES = 0.6;
+/** How tall the character stands. The model is fitted to this (0A.3). */
+export const PLAYER_HEIGHT_METRES = 1.8;
+const BODY_HEIGHT_METRES = PLAYER_HEIGHT_METRES;
 
-const BODY_COLOUR = new Color3(0.95, 0.85, 0.55);
-/** Bright and unmistakable while the dodge's invulnerability window is open. */
-const DODGE_COLOUR = new Color3(0.55, 0.9, 1);
-/** Deepens as the hammer charges, so the wind-up reads on the character too. */
-const CHARGE_COLOUR = new Color3(0.98, 0.5, 0.2);
-/** Flashed when hit, and held while defeated. */
-const HURT_COLOUR = new Color3(0.9, 0.25, 0.3);
+/**
+ * State colours, now washed over a textured character rather than painted onto
+ * a box.
+ *
+ * The language is the one the placeholder established and the playtest did not
+ * complain about: blue means the dodge is protecting you, orange means a swing
+ * is winding up, red means damage. Applied as emissive, so the character glows
+ * rather than turning into a different character.
+ */
+const DODGE_COLOUR = new Color3(0.25, 0.55, 0.8);
+const CHARGE_COLOUR = new Color3(0.7, 0.28, 0.05);
+const HURT_COLOUR = new Color3(0.75, 0.1, 0.14);
 
 /** How long the grade of the last swing stays visible, in seconds. */
 const GRADE_FLASH_SECONDS = 0.45;
@@ -153,44 +156,36 @@ export interface Player {
 /**
  * The player character.
  *
- * A blank box with a nose, deliberately: the real rigged character is task
- * 0A.3, and this only has to be tall enough to judge scale and pointed enough
- * to show which way movement is heading. Neither movement nor dodging is
+ * The box is gone: this drives a real rigged model loaded at 0A.3, animated
+ * from the same state the rules already track. Neither movement nor dodging is
  * improvised here — both go through game-core, so the rules the server will
- * eventually enforce are the rules the client already obeys.
+ * eventually enforce are the rules the client already obeys, and the animation
+ * layer only ever *reports* that state rather than deciding anything.
  */
 export function createPlayer(
   scene: Scene,
   region: Region,
   start: WorldPoint,
   assist: boolean,
+  character: Character,
 ): Player {
-  const body = MeshBuilder.CreateBox(
-    'player',
-    { width: BODY_WIDTH_METRES, depth: BODY_WIDTH_METRES, height: BODY_HEIGHT_METRES },
-    scene,
-  );
-  const bodyMaterial = new StandardMaterial('player-material', scene);
-  bodyMaterial.diffuseColor = BODY_COLOUR;
-  bodyMaterial.specularColor = Color3.Black();
-  body.material = bodyMaterial;
+  const body = character.root;
 
-  // A small marker on the front face so facing is visible on a featureless box.
-  const nose = MeshBuilder.CreateBox(
-    'player-facing',
-    { width: 0.22, depth: 0.28, height: 0.22 },
-    scene,
-  );
-  const noseMaterial = new StandardMaterial('player-facing-material', scene);
-  noseMaterial.diffuseColor = new Color3(0.25, 0.2, 0.15);
-  noseMaterial.specularColor = Color3.Black();
-  nose.material = noseMaterial;
-  nose.parent = body;
-  nose.position.set(0, BODY_HEIGHT_METRES / 4, BODY_WIDTH_METRES / 2);
-
-  // The weapon is a real object with a real arc. Before it existed a tap had
-  // nothing to show, and the tester could not tell attacking had worked.
-  const hammer = createHammer(scene, body, timingBands(assist), BODY_HEIGHT_METRES);
+  // The hammer hangs from the rig's named hand socket, so it inherits the swing
+  // of the attack animation rather than having to be animated in parallel with
+  // it. Its scale compensation undoes the fitting applied to the model: the
+  // weapon is authored in metres and the arm is in the asset's own units.
+  const socket = character.socket;
+  const hammer =
+    socket === null
+      ? // No socket in this asset: fall back to the body, which looks wrong but
+        // plays. A missing socket is cosmetic, not fatal.
+        createHammer(scene, body, timingBands(assist), BODY_HEIGHT_METRES)
+      : createHammer(scene, socket, timingBands(assist), BODY_HEIGHT_METRES, {
+          scaleCompensation: 1 / character.fittedScale,
+          // The socket is the whole arm; the grip is its hand end.
+          offset: character.socketGrip,
+        });
 
   let position: WorldPoint = start;
   let facing = 0;
@@ -210,62 +205,79 @@ export function createPlayer(
    * swing freezes whenever the player is standing still.
    */
   let frameSeconds = 0;
+  /** Whether the player moved under their own steering this frame. */
+  let moving = false;
 
   const defeated = (): boolean => defeatedSeconds > 0;
   const isProtected = (): boolean => isInvulnerable(dodge) || mercySeconds > 0 || defeated();
 
   const place = (): void => {
     const elevation = elevationAtWorld(region, position.x, position.z);
-    body.position.set(position.x, elevation + BODY_HEIGHT_METRES / 2, position.z);
+    // The model stands on its own feet: the loader normalised its origin, so
+    // this is ground level rather than a body-centre guess.
+    body.position.set(position.x, elevation, position.z);
     body.rotation.y = facing;
     hammer.update(attack, frameSeconds);
 
-    // Placeholder art cannot animate, so state reads through colour and shape
-    // instead. Real animation replaces all of this at 0A.3/0A.9.
+    // The rig animates the state; colour and squash now only *emphasise* it.
+    // That is the whole point of 0A.3 — before it, a change of colour was the
+    // only thing a state could say.
+    character.play(
+      clipFor({
+        defeated: defeated(),
+        swinging: attack.phase === 'recovering',
+        charging: isPastTapThreshold(attack),
+        moving,
+      }),
+    );
+
     const evading = isInvulnerable(dodge);
     const charge = chargeProgress(attack);
 
+    character.setVisible(true);
+
     if (defeated()) {
-      // Flat on the floor. A stand-in for the downed/revive system that arrives
-      // with multiplayer at Stage 1 — there is nobody here to revive you.
-      bodyMaterial.diffuseColor = HURT_COLOUR;
-      body.scaling.set(1.2, 0.2, 1.2);
+      // Down. The `die` clip holds its last frame, so the body stays on the
+      // floor — a stand-in for the downed/revive system that arrives with
+      // multiplayer at Stage 1, since there is nobody here to revive you.
+      character.tint(HURT_COLOUR);
+      character.setScale(1, 1, 1);
       return;
     }
 
     if (mercySeconds > 0) {
-      // Blink, so being hit is unmistakable and the free moment is visible.
+      // Flicker, the way every game has said "you are hit and briefly safe"
+      // for forty years. It survives any texture, which a colour swap does not.
       const blink = Math.floor(mercySeconds * 12) % 2 === 0;
-      bodyMaterial.diffuseColor = blink ? HURT_COLOUR : BODY_COLOUR;
+      character.setVisible(!blink);
+      character.tint(HURT_COLOUR);
 
       // A stagger over the first moments of the mercy window. The playtester
       // could not tell they were losing health; a body that visibly reels is
       // the channel that does not require looking at the HUD at all.
       const staggerLeft = Math.max(0, mercySeconds - (MERCY_SECONDS - STAGGER_SECONDS));
       const stagger = staggerLeft / STAGGER_SECONDS;
-      body.scaling.set(1 + stagger * 0.3, 1 - stagger * 0.28, 1 + stagger * 0.3);
+      character.setScale(1 + stagger * 0.25, 1 - stagger * 0.22, 1 + stagger * 0.25);
       return;
     }
 
     if (evading) {
-      bodyMaterial.diffuseColor = DODGE_COLOUR;
-      body.scaling.set(1.25, 0.7, 1.25);
+      character.tint(DODGE_COLOUR);
+      character.setScale(1.1, 0.85, 1.1);
       return;
     }
 
     if (isPastTapThreshold(attack)) {
-      // Winds up visibly: colour deepens and the body compresses as the meter
-      // fills, so the swing is telegraphed on the character and not only in the
-      // HUD. A tap is too brief to show anything, which is correct.
-      bodyMaterial.diffuseColor = Color3.Lerp(BODY_COLOUR, CHARGE_COLOUR, charge);
-      body.scaling.set(1 + charge * 0.18, 1 - charge * 0.16, 1 + charge * 0.18);
+      // The wind-up already shows in the held-weapon pose and on the hammer
+      // head; this adds heat to it as the charge fills.
+      character.tint(CHARGE_COLOUR.scale(charge));
+      character.setScale(1, 1, 1);
       return;
     }
 
     if (gradeFlashSeconds > 0 && lastSwing !== null) {
-      // Impact reads through size as well as colour, so swings differ on more
-      // than one channel (the roadmap forbids relying on text alone). A heavy
-      // PERFECT lands hardest; a combo finisher is the light path's payoff.
+      // Impact reads on more than one channel, which the roadmap requires: the
+      // swing animation carries the motion, this carries the force.
       const punch =
         lastSwing.kind === 'heavy'
           ? lastSwing.grade === 'perfect'
@@ -277,13 +289,13 @@ export function createPlayer(
             ? 0.24
             : 0.1;
       const fade = gradeFlashSeconds / GRADE_FLASH_SECONDS;
-      bodyMaterial.diffuseColor = Color3.Lerp(BODY_COLOUR, CHARGE_COLOUR, fade * punch);
-      body.scaling.set(1 + punch * fade, 1 - punch * fade * 0.5, 1 + punch * fade);
+      character.tint(CHARGE_COLOUR.scale(fade * punch));
+      character.setScale(1 + punch * fade * 0.4, 1, 1 + punch * fade * 0.4);
       return;
     }
 
-    bodyMaterial.diffuseColor = BODY_COLOUR;
-    body.scaling.set(1, 1, 1);
+    character.tint(null);
+    character.setScale(1, 1, 1);
   };
 
   place();
@@ -293,6 +305,7 @@ export function createPlayer(
       const { direction, dodgeRequested, attackHeld } = input;
 
       frameSeconds = deltaSeconds;
+      moving = false;
       mercySeconds = Math.max(0, mercySeconds - deltaSeconds);
 
       if (defeated()) {
@@ -378,6 +391,7 @@ export function createPlayer(
         return { swing: swungThisFrame, dodgeStarted };
       }
 
+      moving = true;
       const speed =
         MOVEMENT.maxSpeedMetresPerSecond *
         (isPastTapThreshold(attack) ? HAMMER.chargingSpeedFactor : 1);
@@ -442,10 +456,7 @@ export function createPlayer(
 
     dispose: () => {
       hammer.dispose();
-      nose.dispose();
-      body.dispose();
-      bodyMaterial.dispose();
-      noseMaterial.dispose();
+      character.dispose();
     },
   };
 }

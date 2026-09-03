@@ -5,5 +5,5 @@
     "jsxImportSource": "preact",
     "types": ["vite/client"]
   },
-  "include": ["src", "tests"]
+  "include": ["src"]
 }

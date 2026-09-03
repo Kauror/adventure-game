@@ -17,13 +17,14 @@ import type { SwingSound } from './audio/audio';
 import { resolveAssist } from './config/assist';
 import { buildLabel } from './config/buildInfo';
 import { createGameCamera } from './game/camera';
-import { createEnemyActor } from './game/enemy';
+import { loadCharacter } from './game/character';
+import { ENEMY_HEIGHT_METRES, createEnemyActor } from './game/enemy';
 import { createEngine } from './game/createEngine';
 import { createDiagnostics } from './game/diagnostics';
 import { createHitStop } from './game/hitStop';
 import { createImpactBurst } from './game/impactBurst';
 import { createImpactRing } from './game/impactRing';
-import { createPlayer } from './game/player';
+import { PLAYER_HEIGHT_METRES, createPlayer } from './game/player';
 import { createScene } from './game/createScene';
 import { createInput } from './input/createInput';
 import { preventBrowserZoom } from './input/preventZoom';
@@ -68,7 +69,17 @@ function requestedJoystickOrigin(): JoystickOrigin {
  * render loop -> UI. Returns a teardown function so the whole thing can be
  * disposed cleanly (used by Vite HMR in development).
  */
-function start(): () => void {
+/**
+ * The two character models.
+ *
+ * Same rig, same clips, different texture — which is the whole of the roadmap's
+ * "second visual variant" requirement, and the reason the enemy needs no art
+ * pipeline of its own.
+ */
+const HERO_MODEL = '/models/hero.glb';
+const FOE_MODEL = '/models/foe.glb';
+
+async function start(): Promise<() => void> {
   document.title = t('app.title');
 
   // Logged before anything can fail. The debug overlay shows this too, but the
@@ -94,12 +105,21 @@ function start(): () => void {
   const assist = resolveAssist();
 
   const spawnAt = spawnPoint(region, 'player-spawn') ?? tileCentreToWorld(region, 0, 0);
-  const player = createPlayer(scene, region, spawnAt, assist);
+
+  // Boot waits for the models. They are ~110 kB each and served from the same
+  // origin, so this is a blink; a loading screen would be more machinery than
+  // the wait deserves, and Stage 0A has nothing else to show during it.
+  const [heroModel, foeModel] = await Promise.all([
+    loadCharacter(scene, HERO_MODEL, { heightMetres: PLAYER_HEIGHT_METRES }),
+    loadCharacter(scene, FOE_MODEL, { heightMetres: ENEMY_HEIGHT_METRES }),
+  ]);
+
+  const player = createPlayer(scene, region, spawnAt, assist, heroModel);
 
   // One enemy, at the region's enemy spawn. Falls back near the player so the
   // toy is never empty if a region forgets to place one.
   const enemySpawn = findSpawn(region, 'enemy-spawn') ?? { x: spawnAt.x + 4, z: spawnAt.z };
-  const enemy = createEnemyActor(scene, region, enemySpawn);
+  const enemy = createEnemyActor(scene, region, enemySpawn, foeModel);
 
   const input = createInput(canvas, joystickLayer, requestedJoystickOrigin());
   const camera = createGameCamera(scene, engine, player.followTarget);
@@ -284,10 +304,27 @@ function start(): () => void {
   };
 }
 
-const teardown = start();
+/**
+ * Boot, and keep hold of the teardown for hot reloads.
+ *
+ * A promise now, because the characters have to load first. The failure path
+ * matters more than it looks: a model that 404s would otherwise leave a black
+ * screen and an unhandled rejection, which on a phone is indistinguishable from
+ * the game simply not working. Logged loudly so the in-page console has
+ * something to say.
+ */
+let teardown: (() => void) | null = null;
+
+void start()
+  .then((dispose) => {
+    teardown = dispose;
+  })
+  .catch((error: unknown) => {
+    console.error('adventure failed to start', error);
+  });
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    teardown();
+    teardown?.();
   });
 }

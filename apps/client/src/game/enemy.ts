@@ -23,8 +23,12 @@ import '@babylonjs/core/Meshes/Builders/boxBuilder';
 import '@babylonjs/core/Meshes/Builders/discBuilder';
 import '@babylonjs/core/Meshes/Builders/planeBuilder';
 
-const BODY_HEIGHT_METRES = 1.5;
-const BODY_WIDTH_METRES = 0.9;
+import type { Character } from './character';
+import { enemyClipFor } from './characterClips';
+
+/** Shorter than the player, so the two read apart at a glance. */
+export const ENEMY_HEIGHT_METRES = 1.5;
+const BODY_HEIGHT_METRES = ENEMY_HEIGHT_METRES;
 
 /**
  * Phase colours.
@@ -109,28 +113,19 @@ function flatMaterial(scene: Scene, name: string, colour: Color3): StandardMater
  * (colour), and a **ring appears on the ground** showing exactly how far the
  * swing reaches (position). Stepping outside that ring is the whole lesson.
  */
-export function createEnemyActor(scene: Scene, region: Region, spawn: WorldPoint): Enemy {
+export function createEnemyActor(
+  scene: Scene,
+  region: Region,
+  spawn: WorldPoint,
+  character: Character,
+): Enemy {
   let state = createEnemy(spawn);
   let flashSeconds = 0;
 
-  const body = MeshBuilder.CreateBox(
-    'enemy',
-    { width: BODY_WIDTH_METRES, depth: BODY_WIDTH_METRES, height: BODY_HEIGHT_METRES },
-    scene,
-  );
-  const bodyMaterial = flatMaterial(scene, 'enemy-material', IDLE_COLOUR);
-  body.material = bodyMaterial;
-
-  // A brow on the front so its facing — and therefore the direction it has
-  // committed to swinging — is visible.
-  const brow = MeshBuilder.CreateBox(
-    'enemy-facing',
-    { width: 0.5, depth: 0.2, height: 0.16 },
-    scene,
-  );
-  brow.material = flatMaterial(scene, 'enemy-facing-material', new Color3(0.15, 0.12, 0.15));
-  brow.parent = body;
-  brow.position.set(0, BODY_HEIGHT_METRES / 3, BODY_WIDTH_METRES / 2);
+  // The second visual variant on the shared rig (roadmap 0A.3): identical
+  // skeleton, identical clips, a different texture. Which is also why the enemy
+  // needs no separate art pipeline of its own.
+  const body = character.root;
 
   // The danger wedge: the actual arc the swing covers, pointing where the enemy
   // has committed to swinging. Stepping out of the side of it is the lesson.
@@ -195,35 +190,39 @@ export function createEnemyActor(scene: Scene, region: Region, spawn: WorldPoint
       case 'windUp':
         // Rears up as it winds: taller and narrower, and redder.
         colour = Color3.Lerp(PURSUE_COLOUR, WINDUP_COLOUR, progress);
-        scale = new Vector3(1 - progress * 0.15, 1 + progress * 0.35, 1 - progress * 0.15);
+        scale = new Vector3(1 - progress * 0.06, 1 + progress * 0.16, 1 - progress * 0.06);
         break;
       case 'strike':
         // Slams down: short and wide. Unmistakable against the rear-up.
         colour = STRIKE_COLOUR;
-        scale = new Vector3(1.3, 0.7, 1.3);
+        scale = new Vector3(1.15, 0.9, 1.15);
         break;
       case 'recover':
         // Properly slumped, not merely dull. At 1.05/0.75 the difference from
         // an idle enemy was too small to notice mid-fight, which is why the
         // playtester never spotted the opening.
         colour = RECOVER_COLOUR;
-        scale = new Vector3(1.2, 0.52, 1.2);
+        scale = new Vector3(1.1, 0.72, 1.1);
         break;
       case 'dead':
         colour = DEAD_COLOUR;
-        scale = new Vector3(1.2, 0.15, 1.2);
+        scale = new Vector3(1, 1, 1);
         break;
       default:
         break;
     }
 
-    // The flash overrides every phase colour: being hit must always read, even
-    // mid-wind-up when the body is already bright red.
-    bodyMaterial.diffuseColor = flashSeconds > 0 ? HIT_FLASH_COLOUR : colour;
-    body.scaling.copyFrom(scale);
-    body.position.set(position.x, ground + (BODY_HEIGHT_METRES * scale.y) / 2, position.z);
+    // The rig carries the phase now — it raises its weapon to wind up and swings
+    // to strike — and colour only reinforces it. The flash overrides every phase
+    // colour, because being hit must read even mid-wind-up when the body is
+    // already glowing red.
+    character.play(enemyClipFor(phase));
+    character.tint(flashSeconds > 0 ? HIT_FLASH_COLOUR : colour);
+    character.setScale(scale.x, scale.y, scale.z);
+    // The model stands on its own feet: the loader normalised its origin.
+    body.position.set(position.x, ground, position.z);
     body.rotation.y = state.facing;
-    // Reeling while helpless. A slumped box is easy to miss; one that wobbles
+    // Reeling while helpless. A slumped body is easy to miss; one that wobbles
     // is not, and it costs nothing.
     body.rotation.z =
       phase === 'recover'
@@ -234,8 +233,8 @@ export function createEnemyActor(scene: Scene, region: Region, spawn: WorldPoint
     wedge.setEnabled(telegraphing);
     if (telegraphing) {
       wedge.position.set(position.x, ground + 0.02, position.z);
-      // Same locked facing as the body, so the wedge and the brow always agree
-      // about where the blow is going.
+      // Same locked facing as the body, so the wedge and the character always
+      // agree about where the blow is going.
       wedge.rotation.y = state.facing;
       wedgeMaterial.alpha = 0.18 + progress * 0.35;
     }
@@ -255,7 +254,7 @@ export function createEnemyActor(scene: Scene, region: Region, spawn: WorldPoint
     barAnchor.setEnabled(alive);
     if (alive) {
       const fraction = healthFraction(state.health);
-      barAnchor.position.set(position.x, ground + BODY_HEIGHT_METRES * scale.y + 0.45, position.z);
+      barAnchor.position.set(position.x, ground + BODY_HEIGHT_METRES * scale.y + 0.35, position.z);
       barFill.scaling.x = Math.max(0.001, fraction);
       // Scaling shrinks around the centre; nudge it so the bar empties leftward.
       barFill.position.x = -(1 - fraction) * 0.55;
@@ -289,8 +288,7 @@ export function createEnemyActor(scene: Scene, region: Region, spawn: WorldPoint
       barFill.dispose();
       barBack.dispose();
       barAnchor.dispose();
-      brow.dispose();
-      body.dispose();
+      character.dispose();
     },
   };
 }

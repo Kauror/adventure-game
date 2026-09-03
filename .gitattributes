@@ -23,6 +23,14 @@
 
 # Bulk assets only.
 assets/**/*.png filter=lfs diff=lfs merge=lfs -text
+
+# Exempted from LFS on purpose: the Stage 0A pipeline-test characters are ~110 kB
+# each, smaller than several source files here, and the only backup remote is a
+# bare repo on KOCorp with no LFS endpoint — LFS-tracking them would break the
+# push that is currently the project's only off-machine copy. Real art, which is
+# what the rule above exists for, still goes to LFS.
+apps/client/public/models/*.glb !filter !diff !merge text=auto -text
+
 assets/**/*.jpg filter=lfs diff=lfs merge=lfs -text
 assets/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
 assets/**/*.webp filter=lfs diff=lfs merge=lfs -text

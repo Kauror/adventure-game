@@ -1,0 +1,14 @@
+{
+  // Tests need both worlds: they import browser source and, for the asset
+  // checks, read files from disk. Kept as its own project so `src` keeps
+  // `types: ["vite/client"]` alone — client code reaching for `process` or a
+  // node: import should still fail to compile, and that guard is worth three
+  // tsc invocations.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "types": ["vite/client", "node"]
+  },
+  "include": ["tests", "src"]
+}

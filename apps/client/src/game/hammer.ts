@@ -82,15 +82,34 @@ function lerp(from: number, to: number, t: number): number {
  * The pivot sits at the shoulder so the weapon rotates about the hands, which
  * is what makes the arc read as a swing rather than a spinning prop.
  */
+export interface HammerMount {
+  /**
+   * Divides out scale inherited from the owner.
+   *
+   * A character model is fitted to a height, and anything parented into its rig
+   * inherits that fitting — so a hammer authored in metres arrives in the
+   * asset's own units instead. One number, taken from the character rather than
+   * guessed, so swapping the asset does not resize the weapon.
+   */
+  readonly scaleCompensation?: number;
+  /** Where the pivot sits in the owner's space, after compensation. */
+  readonly offset?: { readonly x: number; readonly y: number; readonly z: number };
+}
+
 export function createHammer(
   scene: Scene,
   owner: TransformNode,
   bands: TimingBands,
   bodyHeight: number,
+  mount: HammerMount = {},
 ): Hammer {
+  const compensation = mount.scaleCompensation ?? 1;
+  const offset = mount.offset ?? { x: 0.34, y: bodyHeight * 0.12, z: 0 };
+
   const pivot = new TransformNode('hammer-pivot', scene);
   pivot.parent = owner;
-  pivot.position.set(0.34, bodyHeight * 0.12, 0);
+  pivot.position.set(offset.x, offset.y, offset.z);
+  pivot.scaling.setAll(compensation);
 
   const handle = MeshBuilder.CreateBox(
     'hammer-handle',
