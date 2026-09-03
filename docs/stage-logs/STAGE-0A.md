@@ -825,3 +825,74 @@ machines' transitions and frame-rate independence; `angleDifference` across the 
 hit-stop cap and its relationship to the server's future displacement check; engine resize and
 disposal; and the enemy health-bar geometry — though its left-anchored fill relies on the camera
 staying fixed, which ADR 0005 now guarantees.
+
+## 2026-09-03 — 0A.11 deployment prepared; **not complete**
+
+The repository is ready to publish and everything that does not require the host is done.
+The deployment itself is blocked: there is no way to authenticate to KOCorp from here.
+
+### The commits that did not exist before today
+
+The project had **no git history at all** — 94 files, every ADR, every test, both specification
+documents, untracked on one Windows disk. That was the largest standing risk in the project and
+it is now closed:
+
+- `7fdf242` — the Stage 0A-1 prototype through 0A.10, as the known-good baseline.
+- `995c695` — the deployment, the version marker and the tsconfig split.
+- `c20ff7b` — records the exec bit on `deploy.sh`, which `core.filemode=false` had dropped.
+
+Still local only: no git remote is configured, so **push remains outstanding**.
+
+### Deployment shape
+
+`deploy/stage0a/` holds a multi-stage Dockerfile (node builder → `nginx-unprivileged`; the runtime
+image carries no Node, pnpm, source or dev dependencies), an nginx config, a compose service, a
+deploy script and a runbook. Three decisions are worth keeping:
+
+1. **Reuse the existing tunnel.** `kocorp-harjutaja` is healthy and already publishes `harjutaja`,
+   `fotod` and `male`. A fourth published-application route is additive and reversible; a second
+   `cloudflared` container would be more moving parts serving one static page.
+2. **Route to a host port, not a container name.** `http://adventure-web:8080` would be tidier but
+   requires attaching the production `cloudflared` to `adventure-net` — restructuring a tunnel
+   three other applications depend on, to save one port. Two of its three existing routes already
+   point at `192.168.1.133:<port>`. Port **8091**, after checking 8080, 8085, 8090 and 3000 were
+   taken.
+3. **No Content-Security-Policy.** Babylon compiles effects at runtime and eruda uses direct eval —
+   the production build warns about exactly that. A policy strict enough to be worth having would
+   break either the renderer or the only console this project has on iOS. `nosniff`,
+   `Referrer-Policy` and a narrow `Permissions-Policy` are set; the policy deliberately does not
+   name `gamepad`, whose default allowlist is `self` (ADR 0006 requires controllers to work).
+
+Cache split: `/assets/` is fingerprinted by Vite and immutable for a year; `index.html` is always
+revalidated. A child stuck on last week's bundle is a bug report that costs an evening.
+
+### Build identity
+
+The published bundle now says which build it is, in two places, neither of them child-facing: the
+first row of the hidden debug overlay, and a `console.info` at boot so the in-page console reports
+it even when the game never renders — which is exactly the case where it matters. The SHA and build
+time are injected by `vite.config.ts` from `BUILD_SHA`/`BUILD_TIME`, falling back to git locally,
+and a build from an unclean tree is marked `+dirty`. Verified in the production bundle: it contained
+`7fdf24200ea3+dirty`, correctly flagging the then-uncommitted deployment work.
+
+That config now uses node APIs, so it type-checks under its own `tsconfig.node.json`. Client source
+keeps `types: ["vite/client"]` only — reaching for `process` in browser code should fail to compile.
+
+### Why it stopped
+
+KOCorp is reachable (`kocorp` = 192.168.1.133, SSH open, `publickey` offered) but nothing here can
+authenticate to it: no SSH key installed, no agent, and the Unraid web session had expired in both
+browsers on the development machine. A deploy key was generated and is waiting to be installed:
+
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICNP73AjJJZeW0LblPYO4hJbSaSKg0jHFIKD/QbJZUtd claude-code-deploy@kiuri-mang
+```
+
+Once one line lands in `/boot/config/ssh/root.pubkeys` and `/root/.ssh/authorized_keys`, the rest is
+`deploy/stage0a/README.md` end to end.
+
+`realm.orgusaar.ee` does not resolve yet (NXDOMAIN), so nothing is half-published and there is
+nothing to undo. The apex `orgusaar.ee` points at 217.146.69.39 and is unrelated — it must not be
+touched.
+
+**0A.11 is not complete, and Kid Test 0 cannot start until it is.**
