@@ -121,6 +121,8 @@ export function createEnemyActor(
 ): Enemy {
   let state = createEnemy(spawn);
   let flashSeconds = 0;
+  /** Seconds of the frame being drawn, so `place()` can advance animation. */
+  let frameSeconds = 0;
 
   // The second visual variant on the shared rig (roadmap 0A.3): identical
   // skeleton, identical clips, a different texture. Which is also why the enemy
@@ -216,6 +218,7 @@ export function createEnemyActor(
     // to strike — and colour only reinforces it. The flash overrides every phase
     // colour, because being hit must read even mid-wind-up when the body is
     // already glowing red.
+    character.animate(frameSeconds);
     character.play(enemyClipFor(phase));
     character.tint(flashSeconds > 0 ? HIT_FLASH_COLOUR : colour);
     character.setScale(scale.x, scale.y, scale.z);
@@ -267,6 +270,7 @@ export function createEnemyActor(
     state: () => state,
 
     update: (deltaSeconds, target) => {
+      frameSeconds = deltaSeconds;
       flashSeconds = Math.max(0, flashSeconds - deltaSeconds);
       const update = advanceEnemy(state, region, target, deltaSeconds);
       state = update.readyToRespawn ? respawnEnemy(update.state) : update.state;

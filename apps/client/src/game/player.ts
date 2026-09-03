@@ -42,8 +42,18 @@ import type { Character } from './character';
 import { clipFor } from './characterClips';
 import { createHammer } from './hammer';
 
-/** How tall the character stands. The model is fitted to this (0A.3). */
-export const PLAYER_HEIGHT_METRES = 1.8;
+/**
+ * How tall the player stands.
+ *
+ * 1.30 m because that is the height the character was actually authored at —
+ * it is a child, and the asset says so. Fitting it to an adult 1.8 m stretched
+ * a drawing of a kid into a grown-up, which is both wrong and the sort of thing
+ * that goes unnoticed because everything still renders.
+ *
+ * The fit is therefore a no-op for this model and stays only as the safety net
+ * that lets a differently-scaled asset drop in without hunting for a factor.
+ */
+export const PLAYER_HEIGHT_METRES = 1.3;
 const BODY_HEIGHT_METRES = PLAYER_HEIGHT_METRES;
 
 /**
@@ -222,6 +232,7 @@ export function createPlayer(
     // The rig animates the state; colour and squash now only *emphasise* it.
     // That is the whole point of 0A.3 — before it, a change of colour was the
     // only thing a state could say.
+    character.animate(frameSeconds);
     character.play(
       clipFor({
         defeated: defeated(),

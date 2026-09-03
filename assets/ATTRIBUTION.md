@@ -8,6 +8,33 @@ No external assets have been added yet. The art direction is deliberately not
 chosen (PLAN §2 selects CC0/low-cost low-poly packs; the representative pack is
 picked in PREP-04 when the rig pipeline work in 0A-2 needs it).
 
+### character_kid01 — the player character
+
+- **Author:** the front and back are **a child's drawing** — one of the children
+  this game is being made for. The sides, top and underside were invented to
+  complete the box, and the pixel translation and rig were generated in this
+  project's design canvas.
+- **Licence:** family's own. Nothing here is traced or sampled from any external
+  image, and the drawing is not to be published outside the game.
+- **Files:** `apps/client/public/models/kid01.glb` (rig and embedded textures),
+  `assets/characters/kid01/` (the 23 face textures and the turnaround sheet, kept
+  as source art so the skin can be re-edited later).
+- **Shape:** 0.75 × 1.30 × 0.50 m, base origin, 1 unit = 1 m, textures embedded.
+  **1.30 m is deliberate — it is a child**, and the game uses it at that height
+  rather than stretching it to adult size.
+- **Rig:** `hip_L/R → leg_L/R`, `torso`, `shoulder_L/R → arm_L/R`, `neck → head`,
+  and `shoulder_R → hand_R`, an empty node at the hand which the hammer hangs
+  from.
+- **No animation clips.** The rig is posed in code instead — see
+  `game/rigAnimator.ts`. That is a better fit than baked clips here: a swing
+  lasts exactly as long as the hammer's recovery and a walk runs at the speed
+  the player is actually moving, neither of which a fixed clip can promise.
+
+This is PLAN §19 arriving early: a child's drawing became a character in the
+game they play. Treat it accordingly.
+
+---
+
 ### Videvikumaa art set — arena surfaces and props
 
 - **Author:** generated in this project's own Claude Design canvas

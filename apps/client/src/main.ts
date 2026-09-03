@@ -75,11 +75,12 @@ function requestedJoystickOrigin(): JoystickOrigin {
 /**
  * The two character models.
  *
- * Same rig, same clips, different texture — which is the whole of the roadmap's
- * "second visual variant" requirement, and the reason the enemy needs no art
- * pipeline of its own.
+ * The player is the project's own character, built from a child's drawing. It
+ * has a rig and no animation clips, so it is posed in code (see rigAnimator.ts).
+ * The enemy is still a Kenney blocky character, which carries its own clips —
+ * two different pipelines through one loader, which is the point of the loader.
  */
-const HERO_MODEL = '/models/hero.glb';
+const HERO_MODEL = '/models/kid01.glb';
 const FOE_MODEL = '/models/foe.glb';
 
 /**

@@ -30,6 +30,12 @@ assets/**/*.png filter=lfs diff=lfs merge=lfs -text
 # push that is currently the project's only off-machine copy. Real art, which is
 # what the rule above exists for, still goes to LFS.
 apps/client/public/models/**/*.glb !filter !diff !merge text=auto -text
+
+# The child's drawing, kept as source art. Exempted for the same reason as the
+# models above: the only backup remote is a bare repo on KOCorp with no LFS
+# endpoint, and these are 6 kB face textures - LFS exists for the large binaries
+# the rule above still covers.
+assets/characters/**/*.png !filter !diff !merge text=auto -text
 apps/client/public/models/*.glb !filter !diff !merge text=auto -text
 
 assets/**/*.jpg filter=lfs diff=lfs merge=lfs -text

@@ -47,7 +47,9 @@ const NORMAL_ENTITIES = 10;
 /** Environment props beyond the region's own walls and platforms. */
 const NORMAL_PROPS = 24;
 
-const HERO_MODEL = '/models/hero.glb';
+// The character the game actually ships, so the numbers are about the real
+// thing rather than about a model nobody sees.
+const HERO_MODEL = '/models/kid01.glb';
 const FOE_MODEL = '/models/foe.glb';
 
 export interface StressOptions {
@@ -135,7 +137,7 @@ export async function runStressScene(
     Array.from({ length: humanoids + entities }, async (_unused, i) => {
       const isHumanoid = i < humanoids;
       const character = await loadCharacter(scene, isHumanoid ? HERO_MODEL : FOE_MODEL, {
-        heightMetres: isHumanoid ? 1.8 : 1.5,
+        heightMetres: isHumanoid ? 1.3 : 1.5,
       });
       character.play('walk');
 

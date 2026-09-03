@@ -7,6 +7,7 @@ import type { Scene } from '@babylonjs/core/scene';
 
 import type { CharacterClip } from './characterClips';
 import { registerGltfLoader } from './gltf';
+import { createRigAnimator } from './rigAnimator';
 import { CLIP_NAMES, isLooping } from './characterClips';
 
 /**
@@ -28,8 +29,14 @@ import { CLIP_NAMES, isLooping } from './characterClips';
  * swap should not also be a hunt for a magic number.
  */
 
-/** The node the hammer hangs from. Named in the asset. */
-const SOCKET_NODE = 'arm-right';
+/**
+ * The node the hammer hangs from, most specific first.
+ *
+ * `hand_R` is an empty node placed at the hand — the right answer when a rig
+ * provides one. `arm-right` is a whole arm whose origin is the shoulder, which
+ * needs the grip computed from its bounds instead.
+ */
+const SOCKET_NODES = ['hand_R', 'arm-right'] as const;
 
 /**
  * Rotation applied to the model so its front matches the game's heading of 0,
@@ -60,6 +67,13 @@ export interface Character {
   readonly current: () => CharacterClip | null;
   /** True when a one-shot clip has finished, so the caller can move on. */
   readonly finished: () => boolean;
+  /**
+   * Advances animation for this frame.
+   *
+   * Only does anything for a rig posed in code. A model carrying its own clips
+   * is driven by Babylon and ignores this.
+   */
+  readonly animate: (deltaSeconds: number) => void;
   /**
    * Washes the whole character in a colour, or clears it with `null`.
    *
@@ -155,11 +169,14 @@ export async function loadCharacter(
   // Searched inside *this* character, never by scene-wide name: both the hero
   // and the foe come from the same rig, so a scene lookup would hand the second
   // character the first one's arm and the hammer would swing on the wrong body.
+  const descendants = root.getDescendants(false);
   const socket =
-    root
-      .getDescendants(false)
-      .find((node): node is TransformNode => node.name === SOCKET_NODE && 'position' in node) ??
-    null;
+    SOCKET_NODES.map(
+      (name) =>
+        descendants.find(
+          (node): node is TransformNode => node.name === name && 'position' in node,
+        ) ?? null,
+    ).find((node) => node !== null) ?? null;
 
   const meshes = root.getChildMeshes(false);
   const materials = new Map<number, { emissiveColor: Color3 }>();
@@ -196,12 +213,22 @@ export async function loadCharacter(
     };
   })();
 
+  // A model with no clips of its own gets posed in code instead — see
+  // rigAnimator.ts. The project's own character is exactly that: a rig from a
+  // child's drawing, with no animation in the file.
+  const animator = groups.size === 0 ? createRigAnimator(root) : null;
+
   let current: CharacterClip | null = null;
   let playing: AnimationGroup | null = null;
   let done = false;
 
   const play = (clip: CharacterClip): void => {
     if (clip === current) {
+      return;
+    }
+    if (animator !== null) {
+      // Posed in code: the clip is just which pose to drive towards.
+      current = clip;
       return;
     }
     const next = groups.get(CLIP_NAMES[clip]);
@@ -233,6 +260,11 @@ export async function loadCharacter(
     root,
     socket,
     play,
+    animate: (deltaSeconds) => {
+      if (animator !== null && current !== null) {
+        animator.update(current, deltaSeconds);
+      }
+    },
     current: () => current,
     finished: () => done,
 
