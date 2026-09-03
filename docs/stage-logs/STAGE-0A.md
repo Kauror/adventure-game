@@ -1124,3 +1124,83 @@ One observation from verifying it: Cloudflare rewrites the icon's
 `Cache-Control` to its own 4-hour browser TTL. `index.html` is unaffected and
 still revalidates, which is the one that matters — checked directly rather than
 assumed.
+
+## 2026-09-03 — Stage 0A-2 begins: 0A.3 real character rig
+
+Kid Test 0 was called complete by the parent. Recorded here as it stands: sitting
+one happened and the toy worked; **sitting two — the unprompted return, which is
+the actual gate — could not have happened yet**, since sitting one was the same
+day. Written down because a gate the log says was passed, and a gate that was
+passed, need to stay distinguishable later.
+
+The boxes are gone. Both the player and the enemy are rigged GLB characters,
+animated from the state the rules already track.
+
+### The asset, and a substitution worth knowing about
+
+**Kenney Blocky Characters 2.0** (CC0), not the pack originally chosen. The
+_Animated Characters_ packs ship **FBX only** with idle/jump/run — no attack, and
+no format Babylon loads without dragging in a conversion toolchain. Two of the
+four things 0A.3 needs, missing. Blocky Characters ships GLB with 27 clips
+including `attack-melee-right` and `holding-right`, at 113 kB per character, and
+its 18 characters share one rig — so the "second visual variant" acceptance costs
+one file copy, and the enemy needed no art pipeline of its own.
+
+It is a **node rig, not a skinned mesh**: six body parts animated by transform.
+Cheap on a phone, and it makes the hand socket an ordinary node — anything
+parented to `arm-right` inherits the swing for free.
+
+### Three things that would have shipped, caught by tests
+
+1. **The GLBs do not embed their textures.** They reference files beside them, so
+   the characters would have loaded untextured, with no error anywhere.
+2. **The socket is a whole arm, and its origin is the shoulder.** The hammer
+   floated above the character's head. The grip is now computed as the
+   bottom-centre of the socket's own bounds, which holds for any humanoid rig.
+3. **A prop authored in metres inherits the model's fitting scale**, so the
+   hammer arrived shrunk into the asset's units until it divided that back out.
+
+### Measured, never assumed
+
+Height and standing position come from the model's bounding box, so placement
+code says "stand here on the ground" and means it whatever the asset thought its
+own origin and units were. That is not tidiness: the roadmap's stop condition for
+this task is _replace the asset if it fights you_, so the asset will be swapped,
+and a swap should not also be a hunt for two magic numbers.
+
+**Which way the model faces was verified, not derived.** glTF is right-handed and
+Babylon is not, so the loader inserts a mirrored `__root__` — which makes the
+handedness argument unreliable on paper and puts the node named `arm-right` on
+the visually opposite side. A screenshot from a 55° camera is no better; mostly
+what you see is the top of the head. The measurement that settles it: face north,
+play the melee clip, watch which way the arm travels. It reaches **+0.43 m
+forward against a 0.34 m backswing**, so the π offset is right. The method is in
+`docs/art-pipeline.md`, so the next swap is a thirty-second check.
+
+### What else changed
+
+Boot is asynchronous now, and logs loudly when a model fails to load: on a phone,
+a black screen and an unhandled rejection look exactly like the game not working.
+The tests moved into their own tsconfig so they can read files from disk while
+client source keeps `types: ["vite/client"]` alone — reaching for `process` in
+browser code should still fail to compile.
+
+Colour still carries state, but as an emissive wash over a textured body rather
+than a diffuse swap, and damage now flickers the character the way every game has
+said "hit, and briefly safe" for forty years. That survives any texture, which a
+colour swap does not.
+
+### Cost
+
+Bundle **1.22 → 1.48 MB** raw for the glTF loader, plus 227 kB of models and
+34 kB of textures. Worth measuring properly at 0A.12 rather than worrying about
+now.
+
+**286 tests** (165 game-core + 121 client). Deployed `01d74df6fa90`.
+
+### Still open
+
+Whether the characters read well _in motion on a phone_ — the animation was
+verified by driving the real state machine and measuring, and seen only in
+desktop screenshots. **0A.12, the device baseline, is the remaining 0A-2 task**,
+and the numbers it wants are exactly the ones this change makes interesting.

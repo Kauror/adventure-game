@@ -5,12 +5,11 @@ import { preventBrowserZoom } from '../src/input/preventZoom';
 /**
  * The zoom guard, checked without a DOM.
  *
- * What is worth pinning here is not that `preventDefault` exists — it is the
- * two details that are easy to "tidy" away and impossible to notice until a
- * child is stuck on a zoomed screen mid-fight: the listeners must be
- * **non-passive** (a passive listener silently cannot cancel anything), and
- * they must all come off again on teardown, or an HMR reload stacks another set
- * on every save.
+ * The important assertion here is a *negative* one: pinch must still work. The
+ * first version of this blocked Safari's gesture events too, which meant a phone
+ * already holding a stored page zoom could never be un-zoomed — every screen
+ * came up magnified with the only remedy disabled. Blocking the accident is the
+ * job; blocking the escape hatch was the bug.
  */
 
 interface Registered {
@@ -36,28 +35,27 @@ function fakeSurface() {
 }
 
 describe('browser zoom prevention', () => {
-  it('blocks the Safari pinch gestures, which are the only way to stop pinch zoom', () => {
-    const { element, listeners } = fakeSurface();
-    preventBrowserZoom(element);
-
-    const types = listeners.map((l) => l.type);
-    expect(types).toContain('gesturestart');
-    expect(types).toContain('gesturechange');
-    expect(types).toContain('gestureend');
-  });
-
-  it('also blocks double-tap zoom for browsers that ignore touch-action', () => {
+  it('blocks double-tap zoom, which is the accident', () => {
     const { element, listeners } = fakeSurface();
     preventBrowserZoom(element);
     expect(listeners.map((l) => l.type)).toContain('dblclick');
   });
 
-  it('registers every listener as non-passive', () => {
+  it('leaves pinch zoom alone, because it is the only way back', () => {
     const { element, listeners } = fakeSurface();
     preventBrowserZoom(element);
 
-    // A passive listener cannot preventDefault, and some browsers default
-    // gesture listeners to passive. Getting this wrong fails silently.
+    // iOS Safari remembers a page zoom per site. Cancel these and a phone that
+    // is already zoomed can never be un-zoomed by the person holding it.
+    const types = listeners.map((l) => l.type);
+    expect(types).not.toContain('gesturestart');
+    expect(types).not.toContain('gesturechange');
+    expect(types).not.toContain('gestureend');
+  });
+
+  it('registers as non-passive, or it could not cancel anything', () => {
+    const { element, listeners } = fakeSurface();
+    preventBrowserZoom(element);
     for (const listener of listeners) {
       expect(listener.options?.passive).toBe(false);
     }
@@ -68,13 +66,11 @@ describe('browser zoom prevention', () => {
     preventBrowserZoom(element);
 
     let cancelled = false;
-    const event = {
+    listeners[0]?.handler({
       preventDefault: () => {
         cancelled = true;
       },
-    } as unknown as Event;
-
-    listeners[0]?.handler(event);
+    } as unknown as Event);
     expect(cancelled).toBe(true);
   });
 
