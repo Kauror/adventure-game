@@ -55,6 +55,28 @@ function find(root: TransformNode, name: string): TransformNode | null {
 }
 
 /**
+ * Hands control of a joint's orientation back to its Euler angles.
+ *
+ * glTF stores rotations as quaternions, and Babylon's loader assigns
+ * `rotationQuaternion` on every node it creates — including nodes with no
+ * rotation at all. While that property is set, Babylon **ignores `rotation`
+ * completely**. So every angle this animator wrote went into a property nothing
+ * read, on every frame, and the character stood in its bind pose the whole time
+ * looking exactly like an animator that had not been wired up.
+ *
+ * Converting once at setup keeps the authored orientation to the degree and
+ * makes the Euler path live. It is done here rather than in the loader because
+ * this is the only code that poses joints by hand; anything driven by clips
+ * wants the quaternion left alone.
+ */
+function makeEulerWritable(joint: TransformNode): void {
+  if (joint.rotationQuaternion !== null) {
+    joint.rotation = joint.rotationQuaternion.toEulerAngles();
+    joint.rotationQuaternion = null;
+  }
+}
+
+/**
  * Builds an animator for a rig with named humanoid joints, or `null` if this
  * model is not one — in which case the caller falls back to whatever clips the
  * file brought with it.
@@ -73,6 +95,35 @@ export function createRigAnimator(root: TransformNode): RigAnimator | null {
   // an elaborate way of doing nothing.
   if (rig.hipLeft === null || rig.shoulderRight === null) {
     return null;
+  }
+
+  for (const joint of Object.values(rig)) {
+    if (joint !== null) {
+      makeEulerWritable(joint);
+    }
+  }
+
+  /*
+   * Bring the arms down.
+   *
+   * The rig is authored in a T-pose — shoulders rotated a quarter turn about Z,
+   * arms straight out — because that is how you model and texture a character
+   * cleanly, not because it is how anyone stands. Every clip below rotates the
+   * shoulders about X, which swings an arm forward and back; applied on top of
+   * a quarter turn it would swing an arm that is already pointing sideways
+   * around its own length, which reads as nothing happening at all.
+   *
+   * So the animator's rest pose is arms-down, and the bind pose is treated as
+   * what it is: a modelling convention rather than a stance.
+   */
+  // Written directly rather than through `setZ`, which is declared below: a
+  // const arrow called before its declaration is a dead-zone crash, and this
+  // project has shipped one of those to a phone already.
+  if (rig.shoulderLeft !== null) {
+    rig.shoulderLeft.rotation.z = 0;
+  }
+  if (rig.shoulderRight !== null) {
+    rig.shoulderRight.rotation.z = 0;
   }
 
   // Rest poses, so every clip returns to where the artist left the joints.

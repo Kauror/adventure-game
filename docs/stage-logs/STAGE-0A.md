@@ -1217,7 +1217,7 @@ the one I would have guessed.
 ### The scenery was drawn one box at a time
 
 Twenty-four props arrived as ~180 meshes, because the models carry a material
-per *face*. Merged into a single mesh with a multi-material — 39 submeshes for
+per _face_. Merged into a single mesh with a multi-material — 39 submeshes for
 39 distinct materials, world matrices baked, `freezeWorldMatrix`,
 `isPickable = false`, materials frozen. **280 → 75 meshes.**
 
@@ -1267,7 +1267,7 @@ Also: `scene.skipPointerMovePicking = true`. Nothing in this game picks — the
 controls are DOM over the canvas — so Babylon was prepared to consider a ray
 cast on every pointer move, which with a thumb on the joystick is every frame.
 
-### What was *not* done
+### What was _not_ done
 
 The player character is **36 meshes and 36 materials — one per box face**. It is
 now 36 cheap materials rather than 36 expensive ones, but the right fix is an
@@ -1280,3 +1280,89 @@ worked around.
 preview pane stopped compositing, and a desktop GPU figure would not predict an
 iPhone anyway. The structural numbers are the evidence; **0A.12 on the phone is
 the measurement that settles it.**
+
+## 0A.14 — the character never moved, and the zoom came back
+
+Two bugs from the same playtest. Neither was caused by 0A.13; the first had been
+there since the character landed.
+
+### The T-pose
+
+The rig has the joints it should — `hip_L`, `shoulder_R`, `neck`, all present and
+found. The animator ran every frame and wrote the right angles. The character
+never moved a millimetre.
+
+**glTF stores rotations as quaternions, and Babylon's loader assigns
+`rotationQuaternion` on every node it creates — including nodes with no rotation
+at all. While that property is set, Babylon ignores `rotation` completely.** So
+`rigAnimator` spent every frame writing Euler angles into a property nothing
+read.
+
+The scene said it plainly once asked: every joint quaternion-posed, every Euler
+angle `0`. And the shoulders read `(0, 0, ±0.707, 0.707)` — a quarter turn about
+Z, which _is_ the T-pose, baked into the bind transform where the animator could
+not reach it.
+
+Two fixes, because there were two problems stacked:
+
+1. `makeEulerWritable` converts the quaternion to Euler once at setup and clears
+   it, preserving the authored orientation to the degree and making the Euler
+   path live.
+2. The shoulders' quarter turn is zeroed, because the bind pose is a **modelling
+   convention, not a stance**. Every clip swings the shoulders about X; applied
+   on top of a quarter turn that rotates a sideways-pointing arm around its own
+   length, which reads as nothing happening.
+
+Verified in the running scene rather than by argument: arms drop, and 45 forced
+frames move shoulders, neck and torso off zero for the first time.
+
+### Why the tests did not catch it, which is the real lesson
+
+There were tests. They passed. They asserted `joint.rotation.x` — **the property
+the animator writes** — which was always correct. The bug lived entirely in
+whether anything _read_ it.
+
+The new tests build the rig the way the loader really builds it, quaternion-posed
+and T-shouldered, and measure **limb direction in world space** via the world
+matrix. Disabling the fix now fails four of them, including "actually moves the
+legs during a walk". Written against `rotation` they fail one.
+
+A test that reads back the value you just wrote tests your arithmetic. Asking
+where the limb ended up is the only assertion that could tell the difference —
+and this stage has now been caught twice by the gap between "the state is right"
+and "the thing on screen is right".
+
+### The zoom, after five to seven quick taps
+
+`#app *` was already `touch-action: none`, and a player still had the page zoom
+land on them mid-fight. Whatever iOS does with a fast tap sequence, it is not
+honouring that, and `dblclick` never arrives to be cancelled because Safari does
+not fire it for a gesture it has decided is a zoom.
+
+So the sequence is tracked directly and the second tap of a pair has its default
+cancelled. Safe because of two properties, both deliberate:
+
+- **single-finger taps only**, so a two-finger pinch is untouched and stays the
+  way back from a zoom the browser is already holding — the trap of 0A.10 is not
+  being rebuilt;
+- **it costs the game nothing**, because every control fires on `pointerdown`.
+  Cancelling a `touchend` default suppresses the synthesised `click`, and
+  gameplay does not use one. The debug panel does, so taps there are excluded.
+
+A burst does not collapse into silence: taps pair up, so seven fast taps suppress
+three and pass four. A guard that ate every tap after the first would be a worse
+bug than the zoom.
+
+The tests caught a real edge on the way: `timeStamp` is measured from page load,
+so a `0` sentinel makes the **first tap of a session** look like the second half
+of a double-tap. It is `null` now.
+
+### Cost
+
+**338 tests** (170 game-core + 168 client).
+
+### Still open
+
+The zoom fix is reasoned, not observed — it cannot be reproduced on a desktop.
+If it recurs, the next step is instrumenting `visualViewport.scale` on the phone
+to establish whether it is page zoom at all, rather than guessing a third time.
