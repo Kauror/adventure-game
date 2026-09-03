@@ -20,6 +20,7 @@ import { createGameCamera } from './game/camera';
 import { loadCharacter } from './game/character';
 import { ENEMY_HEIGHT_METRES, createEnemyActor } from './game/enemy';
 import { createEngine } from './game/createEngine';
+import { createFrameGate, frameCapFromLocation } from './game/frameCap';
 import { createDiagnostics } from './game/diagnostics';
 import { createHitStop } from './game/hitStop';
 import { createImpactBurst } from './game/impactBurst';
@@ -129,7 +130,7 @@ async function start(): Promise<() => void> {
   const chargeMeter = createChargeMeter(joystickLayer, timingBands(assist));
 
   // Feel: the difference between a correct combat loop and one worth replaying.
-  const diagnostics = createDiagnostics(engine);
+  const diagnostics = createDiagnostics(engine, () => frames.targetFps);
   const audio = createAudio();
   const hitStop = createHitStop();
   const impacts = createImpactBurst(scene);
@@ -282,8 +283,16 @@ async function start(): Promise<() => void> {
     assist,
   });
 
+  // Capped rather than free-running. Sixty frames of a fixed-camera scene with
+  // six-box characters buys little on a phone and costs battery and heat, and
+  // heat is what turns a good half-hour session into a bad one. `?fps=60`
+  // restores the uncapped behaviour for a side-by-side.
+  const frames = createFrameGate(frameCapFromLocation());
+
   engine.runRenderLoop(() => {
-    scene.render();
+    if (frames.shouldRender(performance.now())) {
+      scene.render();
+    }
   });
 
   return () => {

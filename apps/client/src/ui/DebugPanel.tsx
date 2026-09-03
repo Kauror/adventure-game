@@ -68,7 +68,10 @@ export function DebugPanel({
         capable of serving a week-old bundle from cache.
       */}
       <Row labelKey="debug.build" value={buildLabel()} />
-      <Row labelKey="debug.fps" value={`${live.fps} (${live.frameMs.toFixed(1)} ms)`} />
+      <Row
+        labelKey="debug.fps"
+        value={`${live.fps}${live.targetFps > 0 ? ` / ${live.targetFps}` : ' / vaba'} (${live.frameMs.toFixed(1)} ms)`}
+      />
       <Row labelKey="debug.viewport" value={`${live.viewport} → ${live.buffer}`} />
       <Row
         labelKey="debug.camera"

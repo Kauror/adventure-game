@@ -9,6 +9,13 @@ import type { Engine } from '@babylonjs/core/Engines/engine';
  */
 export interface LiveDiagnostics {
   readonly fps: number;
+  /**
+   * Frames per second the game is aiming for, or 0 when uncapped.
+   *
+   * Shown beside the measured rate because without it a capped 30 and a
+   * struggling 30 look identical, and they need completely different responses.
+   */
+  readonly targetFps: number;
   readonly frameMs: number;
   /** CSS pixels the canvas occupies. */
   readonly viewport: string;
@@ -42,7 +49,7 @@ function shorten(value: string, max = 42): string {
   return cleaned.length > max ? `${cleaned.slice(0, max - 1)}…` : cleaned;
 }
 
-export function createDiagnostics(engine: Engine): Diagnostics {
+export function createDiagnostics(engine: Engine, targetFps: () => number): Diagnostics {
   let renderer = 'unknown';
   try {
     const info = engine.getGlInfo();
@@ -64,6 +71,7 @@ export function createDiagnostics(engine: Engine): Diagnostics {
     device,
     live: () => ({
       fps: Math.round(engine.getFps()),
+      targetFps: targetFps(),
       frameMs: Math.round(engine.getDeltaTime() * 10) / 10,
       viewport: `${window.innerWidth}×${window.innerHeight}`,
       buffer: `${engine.getRenderWidth()}×${engine.getRenderHeight()}`,
