@@ -16,13 +16,31 @@ import { orthoBounds, tiltToBeta } from './cameraMath';
  * the edges of a wide landscape screen. 55° is steep enough that 1.6 m walls
  * hide very little, without flattening silhouettes into top-down blobs.
  *
- * `verticalExtentMetres` is the one number here still expected to move: 12 m was
- * chosen against a placeholder box, and a real character (0A.3) is a better
- * guide to how large a person should look.
+ * `verticalExtentMetres` moved from 12 m to 9 m after the first adult playtest,
+ * which reported that "the action feels distant rather than personal". A 25%
+ * tighter frame puts the player and the enemy meaningfully on screen without
+ * touching the tilt, which was not the complaint. `?zoom=wide` restores the old
+ * framing for comparison; it is a development affordance, never offered to a
+ * player, because the camera is not theirs to manage (PLAN §2).
+ *
+ * The tilt stays at 55°: steep enough that 1.6 m walls hide very little,
+ * without flattening silhouettes into top-down blobs.
  */
+const NEAR_EXTENT_METRES = 9;
+const WIDE_EXTENT_METRES = 12;
+
+function requestedExtent(): number {
+  if (typeof window === 'undefined') {
+    return NEAR_EXTENT_METRES;
+  }
+  return new URLSearchParams(window.location.search).get('zoom') === 'wide'
+    ? WIDE_EXTENT_METRES
+    : NEAR_EXTENT_METRES;
+}
+
 export const GAME_CAMERA: CameraConfig = {
   tiltDegrees: 55,
-  verticalExtentMetres: 12,
+  verticalExtentMetres: requestedExtent(),
 };
 
 /** Where the camera should be looking. Metres. */

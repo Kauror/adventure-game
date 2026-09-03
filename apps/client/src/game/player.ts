@@ -21,6 +21,8 @@ import {
   chargeProgress,
   createAttackState,
   isPastTapThreshold,
+  timingBands,
+  HAMMER,
   createDodgeState,
   dodgeSpeed,
   elevationAtWorld,
@@ -40,6 +42,8 @@ import type { Scene } from '@babylonjs/core/scene';
 
 import '@babylonjs/core/Meshes/Builders/boxBuilder';
 
+import { createHammer } from './hammer';
+
 /** Placeholder proportions until the real rig arrives at 0A.3. */
 const BODY_HEIGHT_METRES = 1.8;
 const BODY_WIDTH_METRES = 0.6;
@@ -51,16 +55,6 @@ const DODGE_COLOUR = new Color3(0.55, 0.9, 1);
 const CHARGE_COLOUR = new Color3(0.98, 0.5, 0.2);
 /** Flashed when hit, and held while defeated. */
 const HURT_COLOUR = new Color3(0.9, 0.25, 0.3);
-
-/**
- * How much slower the player moves while winding up the hammer.
- *
- * A charge that costs nothing is strictly better than not charging, which
- * removes the decision entirely. Slowing the wind-up makes committing to a big
- * swing a real choice, and makes the hammer feel heavy. Tunable in the 0A.9 feel
- * pass — flagged there because it was a judgement call, not a requirement.
- */
-const CHARGING_SPEED_FACTOR = 0.45;
 
 /** How long the grade of the last swing stays visible, in seconds. */
 const GRADE_FLASH_SECONDS = 0.45;
@@ -78,6 +72,9 @@ const MERCY_SECONDS = 0.8;
 
 /** How long the player lies defeated before getting back up. */
 const DEFEAT_SECONDS = 1.5;
+
+/** How long the recoil from a hit lasts, inside the mercy window. */
+const STAGGER_SECONDS = 0.22;
 
 export interface PlayerSnapshot {
   readonly world: WorldPoint;
@@ -98,6 +95,12 @@ export interface PlayerSnapshot {
   readonly defeated: boolean;
   /** True while a hit would be ignored — dodging, mercy frames, or defeated. */
   readonly protected: boolean;
+}
+
+/** The bare minimum the always-on HUD reads. */
+export interface PlayerVitals {
+  readonly health: Health;
+  readonly defeated: boolean;
 }
 
 export interface PlayerInput {
@@ -127,6 +130,16 @@ export interface PlayerFrame {
 export interface Player {
   readonly update: (deltaSeconds: number, input: PlayerInput) => PlayerFrame;
   readonly snapshot: () => PlayerSnapshot;
+  /**
+   * Just the numbers the HUD needs, every frame it asks.
+   *
+   * Separate from `snapshot()` because the health pips must update during
+   * ordinary play, while the full snapshot — tile lookups, elevation, walkable
+   * — is only worth computing when the debug overlay is open. Before this
+   * existed the HUD shared the debug poll, so a child's health bar silently
+   * never changed unless a developer had the readout showing.
+   */
+  readonly vitals: () => PlayerVitals;
   readonly position: () => WorldPoint;
   readonly facing: () => number;
   /** Chest height in world metres — where an impact effect belongs. */
@@ -175,6 +188,10 @@ export function createPlayer(
   nose.parent = body;
   nose.position.set(0, BODY_HEIGHT_METRES / 4, BODY_WIDTH_METRES / 2);
 
+  // The weapon is a real object with a real arc. Before it existed a tap had
+  // nothing to show, and the tester could not tell attacking had worked.
+  const hammer = createHammer(scene, body, timingBands(assist), BODY_HEIGHT_METRES);
+
   let position: WorldPoint = start;
   let facing = 0;
   let dodge: DodgeState = createDodgeState();
@@ -185,6 +202,14 @@ export function createPlayer(
   let health: Health = createHealth(MAX_HEALTH);
   let mercySeconds = 0;
   let defeatedSeconds = 0;
+  /**
+   * Seconds of the frame being drawn, so `place()` can pose the hammer.
+   *
+   * Kept here rather than threaded through every early return: `place()` is
+   * called from six places and the hammer must be posed on all of them, or the
+   * swing freezes whenever the player is standing still.
+   */
+  let frameSeconds = 0;
 
   const defeated = (): boolean => defeatedSeconds > 0;
   const isProtected = (): boolean => isInvulnerable(dodge) || mercySeconds > 0 || defeated();
@@ -193,6 +218,7 @@ export function createPlayer(
     const elevation = elevationAtWorld(region, position.x, position.z);
     body.position.set(position.x, elevation + BODY_HEIGHT_METRES / 2, position.z);
     body.rotation.y = facing;
+    hammer.update(attack, frameSeconds);
 
     // Placeholder art cannot animate, so state reads through colour and shape
     // instead. Real animation replaces all of this at 0A.3/0A.9.
@@ -211,7 +237,13 @@ export function createPlayer(
       // Blink, so being hit is unmistakable and the free moment is visible.
       const blink = Math.floor(mercySeconds * 12) % 2 === 0;
       bodyMaterial.diffuseColor = blink ? HURT_COLOUR : BODY_COLOUR;
-      body.scaling.set(1, 1, 1);
+
+      // A stagger over the first moments of the mercy window. The playtester
+      // could not tell they were losing health; a body that visibly reels is
+      // the channel that does not require looking at the HUD at all.
+      const staggerLeft = Math.max(0, mercySeconds - (MERCY_SECONDS - STAGGER_SECONDS));
+      const stagger = staggerLeft / STAGGER_SECONDS;
+      body.scaling.set(1 + stagger * 0.3, 1 - stagger * 0.28, 1 + stagger * 0.3);
       return;
     }
 
@@ -260,6 +292,7 @@ export function createPlayer(
     update: (deltaSeconds, input) => {
       const { direction, dodgeRequested, attackHeld } = input;
 
+      frameSeconds = deltaSeconds;
       mercySeconds = Math.max(0, mercySeconds - deltaSeconds);
 
       if (defeated()) {
@@ -346,7 +379,8 @@ export function createPlayer(
       }
 
       const speed =
-        MOVEMENT.maxSpeedMetresPerSecond * (isPastTapThreshold(attack) ? CHARGING_SPEED_FACTOR : 1);
+        MOVEMENT.maxSpeedMetresPerSecond *
+        (isPastTapThreshold(attack) ? HAMMER.chargingSpeedFactor : 1);
       position = stepMovement(region, position, direction, deltaSeconds, speed);
       // Face the way the input points, not the way movement resolved: sliding
       // along a wall should not spin the character into the wall.
@@ -365,6 +399,10 @@ export function createPlayer(
         return false;
       }
 
+      // Not a frame boundary: posing the hammer again here would advance its
+      // settle twice in one frame.
+      frameSeconds = 0;
+
       health = applyDamage(health, amount);
       mercySeconds = MERCY_SECONDS;
 
@@ -377,6 +415,8 @@ export function createPlayer(
       place();
       return true;
     },
+
+    vitals: () => ({ health, defeated: defeated() }),
 
     snapshot: () => ({
       world: position,
@@ -401,6 +441,7 @@ export function createPlayer(
     }),
 
     dispose: () => {
+      hammer.dispose();
       nose.dispose();
       body.dispose();
       bodyMaterial.dispose();

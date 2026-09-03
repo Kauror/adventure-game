@@ -29,7 +29,7 @@ export const HAMMER = {
    * Short enough that a deliberate hold is never mistaken for a tap, long enough
    * that a child's press — which is not crisp — is not mistaken for a charge.
    */
-  tapThresholdSeconds: 0.18,
+  tapThresholdSeconds: 0.22,
 
   /** Damage of a plain hit, before the grade or combo multiplier. */
   baseDamage: 2,
@@ -38,17 +38,33 @@ export const HAMMER = {
   reachMetres: 2.2,
   swingHalfAngleRadians: 1.05,
 
-  /** Recovery after a light hit. Brief, so taps can actually chain. */
-  lightRecoverySeconds: 0.18,
+  /**
+   * Recovery after a light hit.
+   *
+   * Lengthened from 0.18 s after the first adult playtest: three taps resolved
+   * so fast they blurred into one indistinct motion and the tester could not
+   * tell whether tapping had done anything. A hammer that recovers instantly is
+   * also not a hammer. Still short enough to chain comfortably.
+   */
+  lightRecoverySeconds: 0.28,
 
   /** How long after a light hit the next tap still continues the chain. */
-  comboWindowSeconds: 0.55,
+  comboWindowSeconds: 0.7,
 
   /** Hits in a full chain; the last is the finisher. */
   comboLength: 3,
 
-  /** Time for the charge meter to fill completely. */
-  chargeSeconds: 0.85,
+  /**
+   * Time for the charge meter to fill completely.
+   *
+   * Raised from 0.85 s after the first adult playtest: an adult could not tell
+   * the character was charging at all, let alone aim for a band inside it.
+   * PLAN §11 sets ~1.2 s as the shape of the mechanic, and the roadmap allows
+   * lengthening for readability but never shortening. At 1.5 s the wind-up is
+   * long enough to *watch*, which is the entire point of an anticipation
+   * mechanic.
+   */
+  chargeSeconds: 1.5,
 
   /**
    * Where the sweet spot sits, as a fraction of the charge. Placed so there is
@@ -58,9 +74,9 @@ export const HAMMER = {
   perfectCentreFraction: 0.62,
 
   /** Width of the PERFECT band. Never narrower than 250 ms, for anyone (PLAN §11). */
-  perfectWidthSeconds: 0.26,
+  perfectWidthSeconds: 0.34,
   /** Width of the GREAT band, which contains PERFECT. */
-  greatWidthSeconds: 0.44,
+  greatWidthSeconds: 0.7,
 
   /** Recovery after a heavy swing. Longer than a light hit: commitment has a cost. */
   heavyRecoverySeconds: 0.4,
@@ -73,7 +89,7 @@ export const HAMMER = {
    * the button forever" becomes the best strategy, which would remove the
    * mechanic for precisely the child assist exists to help.
    */
-  minOverchargeSeconds: 0.1,
+  minOverchargeSeconds: 0.18,
 
   /**
    * How much wider assist makes the mastery bands.
@@ -83,6 +99,17 @@ export const HAMMER = {
    * eleven-year-old is unaffected, and neither is told which is which.
    */
   assistWidthMultiplier: 1.6,
+
+  /**
+   * How fast the player moves while charging, as a fraction of normal speed.
+   *
+   * A charge that costs nothing is strictly better than not charging, which
+   * removes the decision. But the first playtest ran at 0.45 and committing
+   * felt like being stuck, so it sits at 0.65: deliberate, never rooted. It is
+   * a game rule rather than presentation because the server will eventually
+   * check displacement against it.
+   */
+  chargingSpeedFactor: 0.65,
 } as const;
 
 /** Every release attacks. The grade only changes how hard. */
@@ -142,15 +169,19 @@ const IDLE: AttackState = {
  *
  * This is the "fixed defined range" PLAN §4 requires: the server will clamp a
  * client's claimed grade to this table, so a tampered client can pick a value
- * from it but never invent one. Nothing applies these yet — damage arrives with
- * the enemy at 0A.8.
+ * from it but never invent one.
+ *
+ * The spread widened after the first playtest, where a charged hit "felt
+ * similar to an ordinary attack". A well-timed heavy now hits about four times
+ * as hard as a tap, which is what makes committing to the charge worth the
+ * exposure.
  */
 export function gradeBonus(grade: AttackGrade): number {
   switch (grade) {
     case 'perfect':
-      return 1.6;
+      return 2;
     case 'great':
-      return 1.25;
+      return 1.45;
     default:
       return 1;
   }
@@ -163,7 +194,7 @@ export function gradeBonus(grade: AttackGrade): number {
  * power. The finisher is the reward for keeping the rhythm going.
  */
 export function comboPower(comboCount: number): number {
-  return comboCount >= HAMMER.comboLength ? 1.1 : 0.7;
+  return comboCount >= HAMMER.comboLength ? 1 : 0.55;
 }
 
 function band(centre: number, width: number): TimingBand {
@@ -227,6 +258,20 @@ export function canAttack(state: AttackState): boolean {
  */
 export function isPastTapThreshold(state: AttackState): boolean {
   return state.phase === 'charging' && state.elapsedSeconds >= HAMMER.tapThresholdSeconds;
+}
+
+/**
+ * 0..1 through the recovery after a swing.
+ *
+ * Drives the follow-through of the swing animation. Without it the hammer would
+ * teleport back to rest, and the arc — the thing that makes a tap legible as a
+ * hammer blow rather than a flicker — would never be seen.
+ */
+export function recoveryProgress(state: AttackState): number {
+  if (state.phase !== 'recovering' || state.recoverySeconds <= 0) {
+    return 0;
+  }
+  return Math.min(1, state.elapsedSeconds / state.recoverySeconds);
 }
 
 /** 0..1 for the charge meter. Zero when not charging. */

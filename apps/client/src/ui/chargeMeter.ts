@@ -10,6 +10,18 @@ import { HAMMER } from '@adventure/game-core';
  * and because they are rendered from the same numbers the meter simply shows a
  * bigger target — nothing announces that the setting is on.
  *
+ * Rebuilt after the first adult playtest, which could not read it at all. Three
+ * things were wrong and all three were about *seeing* it:
+ *
+ *  - it lived in the bottom-right corner, under the hand that was charging;
+ *  - it was 14 px tall, and the bands within it a few pixels wide;
+ *  - the filling edge was the only moving thing, and it moved for 0.85 s.
+ *
+ * So it is now large, centred above the thumbs, and has a distinct head on the
+ * moving edge — the thing whose arrival into the bright band is the whole
+ * mechanic. The bands differ in height as well as colour, because a child who
+ * cannot read also may not distinguish the colours.
+ *
  * Updated by writing transforms every frame rather than re-rendering the Preact
  * overlay, for the same reason as the joystick: reconciling the HUD at 60 fps on
  * a phone is a waste of the frame budget.
@@ -56,10 +68,23 @@ export function createChargeMeter(container: HTMLElement, bands: TimingBands): C
   fill.className = 'ui-charge__fill';
   track.appendChild(fill);
 
+  // The head of the fill, as its own element: a bright edge travelling towards
+  // the bright band reads as "release when these meet", which a filling bar on
+  // its own never did.
+  const head = document.createElement('div');
+  head.className = 'ui-charge__head';
+  track.appendChild(head);
+
   root.appendChild(track);
   container.appendChild(root);
 
+  const perfectStart = toFraction(bands.perfect.startSeconds);
+  const perfectEnd = toFraction(bands.perfect.endSeconds);
+  const greatStart = toFraction(bands.great.startSeconds);
+  const greatEnd = toFraction(bands.great.endSeconds);
+
   let wasCharging = false;
+  let lastZone = '';
 
   return {
     update: (progress, charging) => {
@@ -67,8 +92,28 @@ export function createChargeMeter(container: HTMLElement, bands: TimingBands): C
         root.classList.toggle('ui-charge--active', charging);
         wasCharging = charging;
       }
-      if (charging) {
-        fill.style.transform = `scaleX(${Math.min(1, Math.max(0, progress))})`;
+      if (!charging) {
+        return;
+      }
+
+      const clamped = Math.min(1, Math.max(0, progress));
+      fill.style.transform = `scaleX(${clamped})`;
+      head.style.transform = `translateX(${clamped * 100}%)`;
+
+      // The whole meter reacts when the head is inside a band, so the moment is
+      // visible in peripheral vision — a child watching the enemy still catches
+      // it. Class changes are guarded: touching classList every frame would
+      // invalidate style on every frame for nothing.
+      const zone =
+        clamped >= perfectStart && clamped <= perfectEnd
+          ? 'perfect'
+          : clamped >= greatStart && clamped <= greatEnd
+            ? 'great'
+            : '';
+      if (zone !== lastZone) {
+        root.classList.toggle('ui-charge--in-great', zone === 'great');
+        root.classList.toggle('ui-charge--in-perfect', zone === 'perfect');
+        lastZone = zone;
       }
     },
     dispose: () => {

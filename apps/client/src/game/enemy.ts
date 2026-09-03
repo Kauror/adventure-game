@@ -6,6 +6,7 @@ import {
   damageEnemy,
   elevationAtWorld,
   healthFraction,
+  recoverProgress,
   respawnEnemy,
   windUpProgress,
 } from '@adventure/game-core';
@@ -13,6 +14,7 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { Color3 } from '@babylonjs/core/Maths/math.color';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
+import { VertexData } from '@babylonjs/core/Meshes/mesh.vertexData';
 import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { Scene } from '@babylonjs/core/scene';
@@ -36,6 +38,8 @@ const PURSUE_COLOUR = new Color3(0.62, 0.44, 0.44);
 const WINDUP_COLOUR = new Color3(1, 0.32, 0.22);
 const STRIKE_COLOUR = new Color3(1, 0.92, 0.8);
 const RECOVER_COLOUR = new Color3(0.32, 0.3, 0.36);
+/** The counterattack window. Cool and inviting — never confusable with danger. */
+const OPENING_COLOUR = new Color3(0.35, 1, 0.75);
 const DEAD_COLOUR = new Color3(0.18, 0.16, 0.2);
 /** Flashed the instant a blow lands, so a hit is never ambiguous. */
 const HIT_FLASH_COLOUR = new Color3(1, 1, 1);
@@ -48,6 +52,45 @@ export interface Enemy {
   /** Top of the body, in metres — where an impact effect should appear. */
   readonly impactHeight: () => number;
   readonly dispose: () => void;
+}
+
+/**
+ * A flat ground wedge spanning `halfAngle` either side of local +Z.
+ *
+ * Built by hand rather than with a disc, because the shape has to be *exactly*
+ * the arc the enemy actually swings through. The first playtest read the old
+ * full circle as "everything in here will be hit", which left the player with
+ * no idea whether to back away, step aside or dodge through — and it was not
+ * even true: the swing is frontal and its facing locks at the wind-up, so
+ * sidestepping beats it. The telegraph now says that.
+ */
+function buildAttackWedge(
+  scene: Scene,
+  name: string,
+  radius: number,
+  halfAngle: number,
+  segments = 24,
+): Mesh {
+  const mesh = new Mesh(name, scene);
+  const positions: number[] = [0, 0, 0];
+  const normals: number[] = [0, 1, 0];
+  const indices: number[] = [];
+
+  for (let i = 0; i <= segments; i += 1) {
+    const angle = -halfAngle + (i / segments) * halfAngle * 2;
+    positions.push(Math.sin(angle) * radius, 0, Math.cos(angle) * radius);
+    normals.push(0, 1, 0);
+    if (i < segments) {
+      indices.push(0, i + 1, i + 2);
+    }
+  }
+
+  const data = new VertexData();
+  data.positions = positions;
+  data.normals = normals;
+  data.indices = indices;
+  data.applyToMesh(mesh);
+  return mesh;
 }
 
 function flatMaterial(scene: Scene, name: string, colour: Color3): StandardMaterial {
@@ -89,20 +132,35 @@ export function createEnemyActor(scene: Scene, region: Region, spawn: WorldPoint
   brow.parent = body;
   brow.position.set(0, BODY_HEIGHT_METRES / 3, BODY_WIDTH_METRES / 2);
 
-  // The danger ring: exactly the reach of the swing, so "get out of the circle"
-  // is a rule a child can see rather than one they have to be told.
-  const ring = MeshBuilder.CreateDisc(
+  // The danger wedge: the actual arc the swing covers, pointing where the enemy
+  // has committed to swinging. Stepping out of the side of it is the lesson.
+  const wedge = buildAttackWedge(
+    scene,
     'enemy-danger',
-    { radius: ENEMY.attackRangeMetres, tessellation: 32 },
+    ENEMY.attackRangeMetres,
+    ENEMY.attackHalfAngleRadians,
+  );
+  const wedgeMaterial = flatMaterial(scene, 'enemy-danger-material', WINDUP_COLOUR);
+  wedgeMaterial.alpha = 0.25;
+  wedgeMaterial.backFaceCulling = false;
+  wedge.material = wedgeMaterial;
+  wedge.isPickable = false;
+  wedge.setEnabled(false);
+
+  // The counterattack window, drawn as a disc that closes as the moment passes.
+  // Green, because it is the one ground marker that means "come here".
+  const opening = MeshBuilder.CreateDisc(
+    'enemy-opening',
+    { radius: 1.35, tessellation: 28 },
     scene,
   );
-  const ringMaterial = flatMaterial(scene, 'enemy-danger-material', WINDUP_COLOUR);
-  ringMaterial.alpha = 0.25;
-  ringMaterial.backFaceCulling = false;
-  ring.material = ringMaterial;
-  ring.rotation.x = Math.PI / 2;
-  ring.isPickable = false;
-  ring.setEnabled(false);
+  const openingMaterial = flatMaterial(scene, 'enemy-opening-material', OPENING_COLOUR);
+  openingMaterial.alpha = 0.3;
+  openingMaterial.backFaceCulling = false;
+  opening.material = openingMaterial;
+  opening.rotation.x = Math.PI / 2;
+  opening.isPickable = false;
+  opening.setEnabled(false);
 
   // Health bar, billboarded so it always faces the fixed camera.
   const barAnchor = new TransformNode('enemy-health', scene);
@@ -125,6 +183,7 @@ export function createEnemyActor(scene: Scene, region: Region, spawn: WorldPoint
     const { position, phase } = state;
     const ground = elevationAtWorld(region, position.x, position.z);
     const progress = windUpProgress(state);
+    const progressOfRecovery = recoverProgress(state);
 
     let colour = IDLE_COLOUR;
     let scale = new Vector3(1, 1, 1);
@@ -144,9 +203,11 @@ export function createEnemyActor(scene: Scene, region: Region, spawn: WorldPoint
         scale = new Vector3(1.3, 0.7, 1.3);
         break;
       case 'recover':
-        // Slumped and dull — visibly the moment to hit back.
+        // Properly slumped, not merely dull. At 1.05/0.75 the difference from
+        // an idle enemy was too small to notice mid-fight, which is why the
+        // playtester never spotted the opening.
         colour = RECOVER_COLOUR;
-        scale = new Vector3(1.05, 0.75, 1.05);
+        scale = new Vector3(1.2, 0.52, 1.2);
         break;
       case 'dead':
         colour = DEAD_COLOUR;
@@ -162,12 +223,32 @@ export function createEnemyActor(scene: Scene, region: Region, spawn: WorldPoint
     body.scaling.copyFrom(scale);
     body.position.set(position.x, ground + (BODY_HEIGHT_METRES * scale.y) / 2, position.z);
     body.rotation.y = state.facing;
+    // Reeling while helpless. A slumped box is easy to miss; one that wobbles
+    // is not, and it costs nothing.
+    body.rotation.z =
+      phase === 'recover'
+        ? Math.sin(state.elapsedSeconds * 13) * 0.16 * (1 - progressOfRecovery)
+        : 0;
 
     const telegraphing = phase === 'windUp';
-    ring.setEnabled(telegraphing);
+    wedge.setEnabled(telegraphing);
     if (telegraphing) {
-      ring.position.set(position.x, ground + 0.02, position.z);
-      ringMaterial.alpha = 0.15 + progress * 0.3;
+      wedge.position.set(position.x, ground + 0.02, position.z);
+      // Same locked facing as the body, so the wedge and the brow always agree
+      // about where the blow is going.
+      wedge.rotation.y = state.facing;
+      wedgeMaterial.alpha = 0.18 + progress * 0.35;
+    }
+
+    // The counterattack window: a green disc that shrinks as it closes, so
+    // "now" is visible without any text and its ending is visible too.
+    const open = phase === 'recover';
+    opening.setEnabled(open);
+    if (open) {
+      const remaining = 1 - recoverProgress(state);
+      opening.position.set(position.x, ground + 0.02, position.z);
+      opening.scaling.set(remaining, remaining, 1);
+      openingMaterial.alpha = 0.15 + remaining * 0.35;
     }
 
     const alive = phase !== 'dead';
@@ -203,7 +284,8 @@ export function createEnemyActor(scene: Scene, region: Region, spawn: WorldPoint
     impactHeight: () => elevationAtWorld(region, state.position.x, state.position.z) + 1,
 
     dispose: () => {
-      ring.dispose();
+      opening.dispose();
+      wedge.dispose();
       barFill.dispose();
       barBack.dispose();
       barAnchor.dispose();

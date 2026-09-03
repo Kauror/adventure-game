@@ -27,7 +27,15 @@ describe('i18n', () => {
     // If the toolchain ever mis-handles encoding, this is the first thing to break.
     expect(t('dev.charsetProbe')).toBe('õ ä ö ü Õ Ä Ö Ü');
     expect(t('orientation.rotateToLandscape')).toContain('öö');
-    expect(t('orientation.rotateToLandscape')).toContain('õ');
+    // `õ` is checked on a key that still has one: the orientation notice was
+    // cut to two words after the playtest, since the diagram above it does the
+    // explaining and most of the players cannot read.
+    expect(t('debug.dodge')).toContain('õ');
+  });
+
+  it('has the orientation notice the portrait screen needs', () => {
+    // Two words, exactly. The rotate diagram carries the meaning.
+    expect(t('orientation.rotateToLandscape')).toBe('Pööra seadet');
   });
 
   it('exposes exactly the catalogue keys', () => {

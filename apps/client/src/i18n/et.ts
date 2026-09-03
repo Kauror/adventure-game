@@ -12,7 +12,9 @@ export const et = {
   // bundle -> DOM -> font) is UTF-8 clean. Asserted in tests/i18n.test.ts.
   'dev.charsetProbe': 'õ ä ö ü Õ Ä Ö Ü',
 
-  'orientation.rotateToLandscape': 'Pööra seade rõhtu',
+  // Deliberately two words: the diagram above it does the explaining, and most
+  // of the players cannot read yet.
+  'orientation.rotateToLandscape': 'Pööra seadet',
 
   'region.testArena.name': 'Prooviareen',
 
@@ -42,6 +44,7 @@ export const et = {
   'debug.console': 'Ava konsool',
   // Which build this phone actually loaded. See config/buildInfo.ts.
   'debug.build': 'Versioon',
+  'debug.audio': 'Heli',
 
   'action.dodge': 'Põige',
   'action.attack': 'Löök',

@@ -64,8 +64,19 @@ describe('orthoBounds', () => {
 
 describe('GAME_CAMERA', () => {
   it('is the configuration settled by ADR 0005', () => {
+    // The tilt is the settled part and did not move. The framing did: 12 m read
+    // as "distant rather than personal" on a real phone, so the default is now
+    // 9 m — about 25% closer — with the old value still reachable as
+    // `?zoom=wide` for comparison.
     expect(GAME_CAMERA.tiltDegrees).toBe(55);
-    expect(GAME_CAMERA.verticalExtentMetres).toBe(12);
+    expect(GAME_CAMERA.verticalExtentMetres).toBe(9);
+  });
+
+  it('still frames more than the fight itself', () => {
+    // A closer camera must not become a keyhole: the player has to see enough
+    // of the arena to read walls and plan a dodge, and the enemy aggroes from
+    // 8 m away. Anything under two tiles of margin around that is too tight.
+    expect(GAME_CAMERA.verticalExtentMetres).toBeGreaterThanOrEqual(8);
   });
 
   it('is a usable, non-degenerate camera', () => {

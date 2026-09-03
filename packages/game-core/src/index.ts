@@ -66,6 +66,7 @@ export {
   gradeFor,
   isCharging,
   isPastTapThreshold,
+  recoveryProgress,
   releaseCharge,
   timingBands,
 } from './attack';
@@ -89,7 +90,9 @@ export {
   createEnemy,
   damageEnemy,
   isEnemyDead,
+  isRecovering,
   isTelegraphing,
+  recoverProgress,
   respawnEnemy,
   windUpProgress,
 } from './enemy';

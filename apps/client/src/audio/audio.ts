@@ -8,12 +8,22 @@
  * feedback far more than it needs good samples. Real SFX replace these with the
  * art pass.
  *
- * Two mobile rules shape the implementation (PLAN §27, §6):
+ * Four mobile rules shape the implementation (PLAN §27, §6). The first is the
+ * one that made the published build silent on a real iPhone:
  *
+ *  - **iOS routes WebAudio through the "ambient" audio session by default, and
+ *    the ring/silent switch mutes it.** The context reports `running`, every
+ *    node plays, and nothing is heard — no error anywhere. Safari 16.4+ exposes
+ *    `navigator.audioSession`; setting it to `playback` opts into the category
+ *    that ignores the switch. This is the single most likely cause of "no audio
+ *    on the iPhone" and it is invisible from any log.
  *  - the AudioContext may only be created and resumed **inside a user gesture**,
  *    or iOS leaves it suspended forever — and note that a *gamepad* button is
  *    not a gesture in any browser, so a controller-only player needs coaxing
  *    (`tryUnlock`) or they get a silent game with no error to explain it;
+ *  - older iOS additionally wants a buffer actually *played* inside that
+ *    gesture before it believes the context is in use, so the unlock plays a
+ *    silent one-sample source;
  *  - it must be resumed again whenever the page comes back, because a phone
  *    locking mid-session is the normal case, not an edge case.
  *
@@ -23,9 +33,29 @@
 
 export type SwingSound = 'light' | 'lightFinisher' | 'heavyGood' | 'heavyGreat' | 'heavyPerfect';
 
+/**
+ * What the hidden debug overlay shows about audio.
+ *
+ * Exists because the iPhone failure mode is silent in every sense: no error, no
+ * console entry, a context that claims to be running. Without a readout on the
+ * device there is no way to tell "the context never started" from "the context
+ * is fine and the mute switch is on" — which need completely different fixes.
+ */
+export interface AudioDiagnostics {
+  /** `none` before anything has been created. */
+  readonly contextState: AudioContextState | 'none';
+  /** True once a context exists and is running. */
+  readonly unlocked: boolean;
+  /** Which event actually unlocked it, or `-` if nothing has yet. */
+  readonly via: string;
+  /** Whether the iOS audio-session category could be set away from `ambient`. */
+  readonly sessionType: string;
+}
+
 export interface GameAudio {
   /** True once the browser has actually let us make noise. */
   readonly isReady: () => boolean;
+  readonly diagnostics: () => AudioDiagnostics;
   /**
    * Nudges a suspended context awake. Safe and cheap to call every frame: it
    * throttles itself and does nothing once audio is running.
@@ -62,11 +92,37 @@ function createNoiseBuffer(context: AudioContext): AudioBuffer {
   return buffer;
 }
 
+/**
+ * Opts iOS out of the "ambient" audio session, whose defining property is that
+ * the hardware ring/silent switch mutes it.
+ *
+ * Safari 16.4+ only, and absent everywhere else, so every failure here is
+ * expected and ignored — the game simply keeps whatever category it had.
+ * Returns what the category ended up as, for the debug overlay.
+ */
+function claimPlaybackSession(): string {
+  const session = (navigator as { audioSession?: { type: string } }).audioSession;
+  if (session === undefined) {
+    return 'unsupported';
+  }
+  try {
+    session.type = 'playback';
+    return session.type;
+  } catch {
+    return 'refused';
+  }
+}
+
+/** Events that count as a user gesture, in the order they tend to arrive. */
+const GESTURES = ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'keydown'] as const;
+
 export function createAudio(): GameAudio {
   let voices: Voices | null = null;
   let chargeOscillator: OscillatorNode | null = null;
   let chargeGain: GainNode | null = null;
   let sweetSpotChimed = false;
+  let unlockedVia = '-';
+  let sessionType = 'not attempted';
 
   const start = (): void => {
     if (voices !== null) {
@@ -81,6 +137,9 @@ export function createAudio(): GameAudio {
     }
 
     try {
+      // Before the context exists, so the category applies to it from birth.
+      sessionType = claimPlaybackSession();
+
       const context = new Ctor();
       const master = context.createGain();
       // Comfortably below full scale: this is a game children hold to their face.
@@ -92,19 +151,55 @@ export function createAudio(): GameAudio {
     }
   };
 
+  /**
+   * Plays one silent sample.
+   *
+   * Older iOS will not treat a context as genuinely unlocked until something
+   * has been *played* inside the gesture, regardless of what `state` says.
+   * Silent, so it costs nothing where it is unnecessary.
+   */
+  const primeSilently = (): void => {
+    if (voices === null) {
+      return;
+    }
+    try {
+      const { context } = voices;
+      const source = context.createBufferSource();
+      source.buffer = context.createBuffer(1, 1, context.sampleRate);
+      source.connect(context.destination);
+      source.start(0);
+    } catch {
+      // A browser that refuses this is one where it was not needed.
+    }
+  };
+
   const resume = (): void => {
     start();
-    if (voices !== null && voices.context.state === 'suspended') {
+    if (voices !== null && voices.context.state !== 'running') {
       void voices.context.resume();
     }
   };
 
-  // The first touch or key press is what unlocks audio on iOS.
-  const unlock = (): void => {
+  /**
+   * Unlocks from inside a real user gesture.
+   *
+   * Registered in the **capture** phase on `window`: the action buttons and the
+   * joystick sit above the canvas and any one of them could stop propagation,
+   * and an unlock that depends on which element was touched is an unlock that
+   * eventually fails on the one device nobody can debug.
+   */
+  const unlock = (event: Event): void => {
+    const first = voices === null;
     resume();
+    primeSilently();
+    if (first || unlockedVia === '-') {
+      unlockedVia = event.type;
+    }
   };
-  window.addEventListener('pointerdown', unlock, { passive: true });
-  window.addEventListener('keydown', unlock, { passive: true });
+
+  for (const type of GESTURES) {
+    window.addEventListener(type, unlock, { capture: true, passive: true });
+  }
 
   // A controller being plugged in is at least a hint that someone is there.
   const onGamepadConnected = (): void => {
@@ -119,6 +214,13 @@ export function createAudio(): GameAudio {
     }
   };
   document.addEventListener('visibilitychange', onVisibility);
+
+  // A bfcache restore — the back button, or switching apps on iOS — can hand
+  // back a suspended context without ever firing `visibilitychange`.
+  const onPageShow = (): void => {
+    resume();
+  };
+  window.addEventListener('pageshow', onPageShow);
 
   /** A shaped tone. `sweepTo` bends the pitch, which is most of the character. */
   const tone = (
@@ -186,6 +288,13 @@ export function createAudio(): GameAudio {
 
   return {
     isReady: () => voices !== null && voices.context.state === 'running',
+
+    diagnostics: () => ({
+      contextState: voices === null ? 'none' : voices.context.state,
+      unlocked: voices !== null && voices.context.state === 'running',
+      via: unlockedVia,
+      sessionType,
+    }),
 
     tryUnlock: () => {
       if (voices !== null && voices.context.state === 'running') {
@@ -304,9 +413,11 @@ export function createAudio(): GameAudio {
     },
 
     dispose: () => {
-      window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('keydown', unlock);
+      for (const type of GESTURES) {
+        window.removeEventListener(type, unlock, { capture: true });
+      }
       window.removeEventListener('gamepadconnected', onGamepadConnected);
+      window.removeEventListener('pageshow', onPageShow);
       document.removeEventListener('visibilitychange', onVisibility);
       if (voices !== null) {
         void voices.context.close();

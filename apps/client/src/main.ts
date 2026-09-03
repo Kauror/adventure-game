@@ -1,6 +1,6 @@
 import './styles.css';
 
-import { parseRegion, spawnPoint, tileCentreToWorld } from '@adventure/game-core';
+import { elevationAtWorld, parseRegion, spawnPoint, tileCentreToWorld } from '@adventure/game-core';
 import { TEST_ARENA_ID, regions } from '@adventure/content';
 
 import {
@@ -22,6 +22,7 @@ import { createEngine } from './game/createEngine';
 import { createDiagnostics } from './game/diagnostics';
 import { createHitStop } from './game/hitStop';
 import { createImpactBurst } from './game/impactBurst';
+import { createImpactRing } from './game/impactRing';
 import { createPlayer } from './game/player';
 import { createScene } from './game/createScene';
 import { createInput } from './input/createInput';
@@ -107,6 +108,8 @@ function start(): () => void {
   const audio = createAudio();
   const hitStop = createHitStop();
   const impacts = createImpactBurst(scene);
+  // Only heavy swings draw a ring, which is what makes one mean something.
+  const rings = createImpactRing(scene);
   const bands = timingBands(assist);
 
   let chargingLastFrame = false;
@@ -117,6 +120,10 @@ function start(): () => void {
     // Hit stop eats a few frames' worth of simulation time on impact. It is
     // client-side juice only — see hitStop.ts on why it must stay brief.
     const deltaSeconds = hitStop.advance(engine.getDeltaTime() / 1000);
+
+    // Outside the hit stop: the shockwave should keep expanding through the
+    // freeze, or the freeze looks like a dropped frame instead of an impact.
+    rings.advance(engine.getDeltaTime() / 1000);
 
     // Edge detection happens once per frame, before anything reads input.
     input.update(now);
@@ -166,20 +173,30 @@ function start(): () => void {
       audio.swing(swingSound(frame.swing));
 
       if (connected) {
+        // The grades were already differentiated, and the playtester still
+        // could not tell them apart — every channel differed only by degree.
+        // The spread is wider now, and the ring below differs in kind: a tap
+        // draws none at all.
         const heavy = frame.swing.kind === 'heavy';
         const weight = heavy
           ? frame.swing.grade === 'perfect'
             ? 1
             : frame.swing.grade === 'great'
-              ? 0.7
-              : 0.45
+              ? 0.65
+              : 0.4
           : frame.swing.comboCount >= HAMMER.comboLength
-            ? 0.55
-            : 0.3;
+            ? 0.35
+            : 0.18;
 
-        hitStop.freeze(0.03 + weight * 0.07);
-        camera.shake(0.05 + weight * 0.16);
+        hitStop.freeze(0.02 + weight * 0.11);
+        camera.shake(0.04 + weight * 0.2);
         impacts.burst(target.position.x, enemy.impactHeight(), target.position.z, weight);
+        rings.strike(
+          target.position.x,
+          elevationAtWorld(region, target.position.x, target.position.z),
+          target.position.z,
+          frame.swing,
+        );
       }
     }
 
@@ -191,7 +208,10 @@ function start(): () => void {
       // feel like nothing happened, because nothing did.
       audio.playerHurt();
       hitStop.freeze(0.06);
-      camera.shake(0.22);
+      // Softened from 0.22: the screen-edge flash and the stagger now carry the
+      // message, and shake large enough to notice is also large enough to
+      // disturb steering with the other thumb.
+      camera.shake(0.14);
       impacts.burst(playerAt.x, player.impactHeight(), playerAt.z, 0.5);
     }
 
@@ -227,7 +247,15 @@ function start(): () => void {
     chargingLastFrame = snapshot.charging;
   });
 
-  const unmountUi = mountUi(uiRoot, { region, player, enemy, input, diagnostics, assist });
+  const unmountUi = mountUi(uiRoot, {
+    region,
+    player,
+    enemy,
+    input,
+    diagnostics,
+    audio,
+    assist,
+  });
 
   engine.runRenderLoop(() => {
     scene.render();
@@ -240,6 +268,7 @@ function start(): () => void {
     camera.dispose();
     audio.dispose();
     impacts.dispose();
+    rings.dispose();
     enemy.dispose();
     chargeMeter.dispose();
     input.dispose();

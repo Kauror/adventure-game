@@ -1,11 +1,12 @@
 import type { EnemyState, Region } from '@adventure/game-core';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 
 import { createTapSequence } from '../debug/tapSequence';
 import { toggleInPageConsole } from '../debug/inPageConsole';
+import type { GameAudio } from '../audio/audio';
 import type { Diagnostics, LiveDiagnostics } from '../game/diagnostics';
 import type { Enemy } from '../game/enemy';
-import type { Player, PlayerSnapshot } from '../game/player';
+import type { Player, PlayerSnapshot, PlayerVitals } from '../game/player';
 import type { GameInput, InputReading } from '../input/createInput';
 import { tryCapturePointer, tryReleasePointer } from '../input/pointerCapture';
 import { t } from '../i18n';
@@ -135,6 +136,32 @@ function useReadout(
   return state;
 }
 
+/** How often the always-on HUD reads the player's health, in milliseconds. */
+const VITALS_INTERVAL_MS = 100;
+
+/**
+ * The player's health, polled whether or not the debug overlay is open.
+ *
+ * This used to come from the development readout's poll, which only ran while
+ * that overlay was visible — so in ordinary play the health pips never changed
+ * at all. The adult playtest reported "could not tell I was losing health", and
+ * that was not a presentation problem: the number on screen was frozen.
+ */
+function useVitals(player: Player): PlayerVitals {
+  const [vitals, setVitals] = useState<PlayerVitals>(() => player.vitals());
+
+  useEffect(() => {
+    const handle = window.setInterval(() => {
+      setVitals(player.vitals());
+    }, VITALS_INTERVAL_MS);
+    return () => {
+      window.clearInterval(handle);
+    };
+  }, [player]);
+
+  return vitals;
+}
+
 /**
  * Health as pips rather than a number.
  *
@@ -149,12 +176,67 @@ function Hearts({ current, max }: { current: number; max: number }) {
   return <div class="ui-hearts">{pips}</div>;
 }
 
+/**
+ * The red flash at the screen edges when a hit lands.
+ *
+ * Retriggered by removing and re-adding the class, because a CSS animation only
+ * restarts when the element actually changes — two hits in quick succession
+ * would otherwise show one flash.
+ */
+function HurtFlash({ health }: { health: number }) {
+  const element = useRef<HTMLDivElement>(null);
+  const previous = useRef(health);
+
+  useEffect(() => {
+    if (health < previous.current && element.current !== null) {
+      const node = element.current;
+      node.classList.remove('ui-hurt--flash');
+      // Reading a layout property is what forces the removal to take effect
+      // before the class goes back on.
+      void node.offsetWidth;
+      node.classList.add('ui-hurt--flash');
+    }
+    previous.current = health;
+  }, [health]);
+
+  return <div class="ui-hurt" ref={element} />;
+}
+
+/**
+ * Portrait: rotate the device.
+ *
+ * A diagram rather than a sentence, because most of the players cannot read.
+ * Drawn inline — three rounded rectangles and an arrow are not worth a
+ * dependency, and this must render before anything else has loaded.
+ */
+function RotateIcon() {
+  return (
+    <svg class="ui-orientation-notice__icon" viewBox="0 0 240 110" aria-hidden="true">
+      <g fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round">
+        <rect x="14" y="10" width="56" height="90" rx="8" />
+        <rect x="150" y="27" width="90" height="56" rx="8" transform="translate(-8 0)" />
+      </g>
+      <circle cx="42" cy="90" r="3.5" fill="currentColor" />
+      <circle cx="196" cy="55" r="3.5" fill="currentColor" />
+      <path
+        d="M92 42 a34 34 0 0 1 52 0"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="4"
+        stroke-linecap="round"
+      />
+      <path d="M144 42 l-13 -4 l3 13 z" fill="currentColor" />
+    </svg>
+  );
+}
+
 export interface AppProps {
   readonly region: Region;
   readonly player: Player;
   readonly enemy: Enemy;
   readonly input: GameInput;
   readonly diagnostics: Diagnostics;
+  readonly audio: GameAudio;
   readonly assist: boolean;
 }
 
@@ -165,9 +247,10 @@ export interface AppProps {
  * buttons and the charge meter. Everything diagnostic hides behind the corner
  * tap.
  */
-export function App({ region, player, enemy, input, diagnostics, assist }: AppProps) {
+export function App({ region, player, enemy, input, diagnostics, audio, assist }: AppProps) {
   const isPortrait = usePortrait();
   const [debugVisible, toggleDebug] = useDebugVisible();
+  const vitals = useVitals(player);
   const { snapshot, reading, enemyState, live } = useReadout(
     player,
     enemy,
@@ -234,7 +317,8 @@ export function App({ region, player, enemy, input, diagnostics, assist }: AppPr
         {t('action.dodge')}
       </button>
 
-      <Hearts current={snapshot.health.current} max={snapshot.health.max} />
+      <Hearts current={vitals.health.current} max={vitals.health.max} />
+      <HurtFlash health={vitals.health.current} />
 
       {debugVisible ? (
         <DebugPanel
@@ -244,6 +328,7 @@ export function App({ region, player, enemy, input, diagnostics, assist }: AppPr
           enemyState={enemyState}
           diagnostics={diagnostics}
           live={live}
+          audio={audio}
           assist={assist}
           onToggleConsole={() => {
             void toggleInPageConsole();
@@ -252,7 +337,10 @@ export function App({ region, player, enemy, input, diagnostics, assist }: AppPr
       ) : null}
 
       {isPortrait ? (
-        <div class="ui-orientation-notice">{t('orientation.rotateToLandscape')}</div>
+        <div class="ui-orientation-notice">
+          <RotateIcon />
+          <div>{t('orientation.rotateToLandscape')}</div>
+        </div>
       ) : null}
     </div>
   );

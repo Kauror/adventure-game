@@ -1,5 +1,6 @@
 import type { EnemyState, Region } from '@adventure/game-core';
 
+import type { GameAudio } from '../audio/audio';
 import { buildLabel } from '../config/buildInfo';
 import { GAME_CAMERA } from '../game/camera';
 import type { Diagnostics, LiveDiagnostics } from '../game/diagnostics';
@@ -28,6 +29,7 @@ export interface DebugPanelProps {
   readonly enemyState: EnemyState;
   readonly diagnostics: Diagnostics;
   readonly live: LiveDiagnostics;
+  readonly audio: GameAudio;
   readonly assist: boolean;
   readonly onToggleConsole: () => void;
 }
@@ -47,10 +49,12 @@ export function DebugPanel({
   enemyState,
   diagnostics,
   live,
+  audio,
   assist,
   onToggleConsole,
 }: DebugPanelProps) {
   const { device } = diagnostics;
+  const sound = audio.diagnostics();
 
   return (
     <div class="ui-readout">
@@ -110,6 +114,17 @@ export function DebugPanel({
         value={`${enemyState.phase} ${Math.max(0, Math.round(enemyState.health.current))}`}
       />
       <Row labelKey="debug.assist" value={assist ? t('debug.yes') : t('debug.no')} />
+      {/*
+        Audio needs four facts, not one. "No sound on the iPhone" has completely
+        different causes depending on whether a context exists, whether it is
+        running, what unlocked it, and whether the iOS audio session could be
+        moved off `ambient` — and only the last of those explains a context that
+        says `running` while the ring/silent switch keeps the phone quiet.
+      */}
+      <Row
+        labelKey="debug.audio"
+        value={`${sound.contextState} · ${sound.unlocked ? t('debug.yes') : t('debug.no')} · ${sound.via} · ${sound.sessionType}`}
+      />
 
       <div class="ui-readout__device">
         <div>{device.engine}</div>

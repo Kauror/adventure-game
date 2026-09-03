@@ -53,8 +53,14 @@ export const ENEMY = {
   /**
    * Helpless afterwards. Long enough to land a full hammer charge or a whole
    * three-tap combo — the counterattack is the reward for dodging well.
+   *
+   * Raised from 1 s alongside the slower hammer: the charge now takes 1.5 s and
+   * a three-tap combo 1.5 s, so a 1 s window would have quietly made the
+   * counterattack impossible to complete — the invariant tests below catch
+   * exactly that. It also answers the playtest directly, since a window nobody
+   * can finish an attack inside is one nobody can learn to use.
    */
-  recoverSeconds: 1,
+  recoverSeconds: 1.5,
 
   damage: 1,
 
@@ -119,6 +125,25 @@ export function windUpProgress(state: EnemyState): number {
     return 0;
   }
   return Math.min(1, state.elapsedSeconds / ENEMY.windUpSeconds);
+}
+
+/** True while the enemy is helpless after a committed swing — the counter window. */
+export function isRecovering(state: EnemyState): boolean {
+  return state.phase === 'recover';
+}
+
+/**
+ * 0..1 through the recovery, for drawing the counterattack window.
+ *
+ * The first playtest could not tell when hitting back was safe. The state
+ * existed and the body slumped, but nothing said "now" — so the client draws
+ * this as a closing window rather than leaving the player to guess.
+ */
+export function recoverProgress(state: EnemyState): number {
+  if (state.phase !== 'recover') {
+    return 0;
+  }
+  return Math.min(1, state.elapsedSeconds / ENEMY.recoverSeconds);
 }
 
 /** Applies damage, and starts dying if that was enough. */
