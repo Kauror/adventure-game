@@ -619,6 +619,8 @@ Bundle a self-hosted in-page console (eruda or vConsole) behind the same hidden 
 
 ## 0A.11 — Publish to a static URL
 
+**Done, 2026-09-03** — live at <https://realm.orgusaar.ee>, deployed commit `ee23b7e1e5eb`. Hosted on KOCorp (the "or equivalent" above) rather than Cloudflare Pages: a static nginx container behind the existing `kocorp-harjutaja` tunnel. Still no server, no game networking and no Stage 0B infrastructure. See `deploy/stage0a/README.md`.
+
 A Vite build is just static files. Deploy it to Cloudflare Pages (or equivalent) — free, no server, no tunnel, none of the Stage 0B infrastructure.
 
 Why this is a task and not a nicety:

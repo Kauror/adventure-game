@@ -896,3 +896,49 @@ nothing to undo. The apex `orgusaar.ee` points at 217.146.69.39 and is unrelated
 touched.
 
 **0A.11 is not complete, and Kid Test 0 cannot start until it is.**
+
+## 2026-09-03 — 0A.11 complete: live at https://realm.orgusaar.ee
+
+The toy is published. Deployed commit **`ee23b7e1e5eb`**, image `adventure-web:ee23b7e1e5eb`
+(64.5 MB), container `adventure-web` on network `adventure-net`, origin
+`http://192.168.1.133:8091`, reached through the existing `kocorp-harjutaja` tunnel.
+
+**Stage 0A-1 is complete. The next thing that happens is children playing it.**
+
+### Verified on the public URL, not merely deployed
+
+HTTP 200 with a valid Let's Encrypt certificate and no redirects; `index.html` revalidated
+(`Cache-Control: no-cache`) while hashed assets carry `immutable`; the 1.2 MB bundle arrives as
+294 kB over the wire; a missing asset 404s while an unknown path falls back to the app, so a
+broken deploy cannot masquerade as a working one; `nosniff`, `Referrer-Policy` and
+`Permissions-Policy` survive the tunnel.
+
+The live bundle contains `ee23b7e1e5eb` with no `+dirty` suffix — what the children load traces
+to a clean commit. It survived a restart of that container alone; the other 30 KOCorp services
+were never touched.
+
+`/Main` and `/login` return the game, not Unraid: the SPA fallback answers every path, and the
+tunnel route reaches only this container. No admin surface, no database port and no Docker socket
+are exposed anywhere along the path.
+
+### What the first real deploy taught
+
+`deploy.sh` exited 1 _after_ deploying correctly — `ADVENTURE_IMAGE` was prefixed onto the `up`
+command, so the `ps` that reports the result could not interpolate the compose file. The image,
+network and container were all created; only the report failed. Exported now (`5cd82df`). A
+deployment script that lies about its own outcome is worse than one that fails loudly.
+
+Also worth recording: `core.filemode=false` on Windows silently dropped the exec bit on
+`deploy.sh`, and the Vite config's move to node APIs needed its own tsconfig so that client source
+keeps no route to `process`.
+
+### Still true, and now testable
+
+Everything on the "verified by reasoning, not by eye" list from 0A.8–0A.10 — telegraph
+readability, the danger ring, audio, hit stop, the tap-vs-hold threshold, camera zoom, the
+cornered-dodge sharp edge — is unchanged. It was never resolvable in an automation pane. It is
+resolvable now, on a phone, which is exactly what Kid Test 0 is for.
+
+Open items carried forward: the repository still has **no git remote**, so five commits on one
+Windows disk remain the only copy; and there is no mute control, which one sitting with a
+five-year-old may well demand.
