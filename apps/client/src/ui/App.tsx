@@ -261,6 +261,7 @@ export function App({ region, player, enemy, input, diagnostics, audio, assist }
   );
 
   const [taps] = useState(() => createTapSequence(DEBUG_TAPS));
+  const debugHandle = useRef<HTMLDivElement>(null);
 
   return (
     <div class="ui-layer">
@@ -270,7 +271,16 @@ export function App({ region, player, enemy, input, diagnostics, audio, assist }
       */}
       <div
         class="ui-debug-handle"
+        ref={debugHandle}
         onPointerDown={() => {
+          // Acknowledge the tap before anything else, so a missed target and a
+          // dead handler stop looking identical.
+          const node = debugHandle.current;
+          if (node !== null) {
+            node.classList.remove('ui-debug-handle--hit');
+            void node.offsetWidth;
+            node.classList.add('ui-debug-handle--hit');
+          }
           if (taps.tap(performance.now())) {
             toggleDebug();
           }

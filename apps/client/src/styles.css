@@ -429,11 +429,43 @@ body {
  */
 .ui-debug-handle {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 56px;
-  height: 56px;
+  /*
+   * Inset, not flush to the corner. Two things eat a tap on the extreme edge of
+   * an iPhone: the safe-area inset in landscape, and Safari itself — a tap at
+   * the very top or bottom edge reveals the browser chrome instead of reaching
+   * the page. Either one makes the sequence look broken with no way to tell
+   * which. Bigger, too: this is pressed four times in a hurry, often one-handed,
+   * usually because something has already gone wrong.
+   */
+  top: calc(var(--ui-safe-top) + 8px);
+  left: calc(var(--ui-safe-left) + 8px);
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
   pointer-events: auto;
+}
+
+/*
+ * A faint acknowledgement that a tap landed.
+ *
+ * Without it there is no way to tell "I am missing the target" from "the handler
+ * is not firing" — which is exactly the hole this corner exists to get you out
+ * of. Quiet enough to stay unnoticed: it only ever appears under a finger that
+ * is already there, and four deliberate taps inside 1.2 s is not something a
+ * child arrives at by accident.
+ */
+.ui-debug-handle--hit {
+  animation: ui-debug-tap 260ms ease-out;
+}
+
+@keyframes ui-debug-tap {
+  from {
+    background: rgb(255 255 255 / 22%);
+  }
+
+  to {
+    background: rgb(255 255 255 / 0%);
+  }
 }
 
 .ui-readout__device {

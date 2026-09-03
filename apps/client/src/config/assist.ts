@@ -66,10 +66,21 @@ export function rememberAssist(assist: boolean): void {
   }
 }
 
-/** URL first, then the remembered choice, then off. */
+/**
+ * URL first, then the remembered choice, then off.
+ *
+ * An explicit URL choice is also *remembered*, so opening `?assist=1` once in
+ * Safari settles it for that context rather than lasting a single page load.
+ * Note it does not cross into the home-screen install: iOS gives that its own
+ * storage, which is exactly why the in-game toggle has to exist.
+ */
 export function resolveAssist(
   fromUrl: boolean | null = assistFromLocation(),
   fromStorage: boolean | null = assistFromStorage(),
 ): boolean {
-  return fromUrl ?? fromStorage ?? DEFAULT_ASSIST;
+  if (fromUrl !== null) {
+    rememberAssist(fromUrl);
+    return fromUrl;
+  }
+  return fromStorage ?? DEFAULT_ASSIST;
 }
