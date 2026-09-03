@@ -26,6 +26,7 @@ import { createImpactRing } from './game/impactRing';
 import { createPlayer } from './game/player';
 import { createScene } from './game/createScene';
 import { createInput } from './input/createInput';
+import { preventBrowserZoom } from './input/preventZoom';
 import type { JoystickOrigin } from './input/touchJoystick';
 import { t } from './i18n';
 import { createChargeMeter } from './ui/chargeMeter';
@@ -82,6 +83,10 @@ function start(): () => void {
   const canvas = requireElement<HTMLCanvasElement>('#game-canvas');
   const uiRoot = requireElement<HTMLElement>('#ui-root');
   const joystickLayer = requireElement<HTMLElement>('#joystick-layer');
+
+  // A mistap must never zoom the page: on a fixed layout there is nothing to
+  // pinch back out with, and the only escape is rotating the phone twice.
+  const restoreZoom = preventBrowserZoom(requireElement<HTMLElement>('#app'));
 
   const { engine, dispose: disposeEngine } = createEngine(canvas);
   const scene = createScene(engine, region);
@@ -272,6 +277,7 @@ function start(): () => void {
     enemy.dispose();
     chargeMeter.dispose();
     input.dispose();
+    restoreZoom();
     player.dispose();
     scene.dispose();
     disposeEngine();

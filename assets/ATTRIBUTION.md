@@ -8,6 +8,12 @@ No external assets have been added yet. The art direction is deliberately not
 chosen (PLAN §2 selects CC0/low-cost low-poly packs; the representative pack is
 picked in PREP-04 when the rig pipeline work in 0A-2 needs it).
 
+The one binary in the repository is original and owes nobody anything:
+`apps/client/public/apple-touch-icon.png`, a 180×180 hammer generated from a
+script in the commit that added it. It exists so an "Add to Home Screen" install
+gets an icon rather than a screenshot of a dark canvas — the only way to lose
+Safari's URL bar on iOS. Replace it when real art exists.
+
 ## Required format
 
 One block per asset or asset pack:

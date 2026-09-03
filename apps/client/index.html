@@ -2,6 +2,12 @@
 <html lang="et">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      `maximum-scale` and `user-scalable=no` still work on Android, and iOS
+      Safari has ignored both since iOS 10. Zoom is actually prevented by
+      `touch-action` across the #app subtree plus the gesture handlers in
+      input/preventZoom.ts — do not trust this line alone.
+    -->
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
@@ -10,6 +16,15 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!--
+      Home-screen identity. iOS Safari cannot hide its own URL bar for a normal
+      page, so "Add to Home Screen" is the only route to a full screen — and
+      that route needs a name short enough to fit under an icon and an icon that
+      is not a screenshot of a dark canvas.
+    -->
+    <meta name="apple-mobile-web-app-title" content="Seiklus" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" href="/apple-touch-icon.png" />
     <!-- Placeholder only: the real title is set from the i18n catalogue at boot. -->
     <title>Adventure</title>
   </head>
