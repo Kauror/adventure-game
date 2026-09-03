@@ -48,12 +48,28 @@ export interface WorldPoint {
  * format only needs what Stage 0A actually uses. Gates, triggers and hiding
  * anchors join it when a stage needs them (PLAN §7).
  */
-export type RegionObjectType = 'player-spawn' | 'enemy-spawn';
+export type RegionObjectType = 'player-spawn' | 'enemy-spawn' | 'prop';
 
 export interface RegionObject {
   readonly type: RegionObjectType;
   readonly id: string;
   readonly tile: TileCoord;
+  /**
+   * Which model to draw. Required for a `prop`, absent for everything else.
+   *
+   * A name, not a path: the region says "brazier", and the client decides where
+   * that file lives. Content that hardcoded `/models/props/brazier_bowl.glb`
+   * would break the moment the assets moved, and regions are meant to outlive
+   * the folder layout (PLAN §20).
+   */
+  readonly model?: string;
+  /**
+   * Rotation about the vertical axis, in degrees, clockwise from north.
+   *
+   * Degrees because a region file is written and read by people. Radians are
+   * the renderer's business, and it converts on the way in.
+   */
+  readonly rotationDegrees?: number;
 }
 
 /** A parsed, validated region. Tiles are indexed `[row][col]`. */

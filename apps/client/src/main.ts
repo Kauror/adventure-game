@@ -20,6 +20,8 @@ import { createGameCamera } from './game/camera';
 import { loadCharacter } from './game/character';
 import { ENEMY_HEIGHT_METRES, createEnemyActor } from './game/enemy';
 import { createEngine } from './game/createEngine';
+import { createFlames } from './game/flames';
+import { createProps } from './game/props';
 import { createFrameGate, frameCapFromLocation } from './game/frameCap';
 import { createDiagnostics } from './game/diagnostics';
 import { createHitStop } from './game/hitStop';
@@ -125,10 +127,16 @@ async function start(): Promise<() => void> {
   // Boot waits for the models. They are ~110 kB each and served from the same
   // origin, so this is a blink; a loading screen would be more machinery than
   // the wait deserves, and Stage 0A has nothing else to show during it.
-  const [heroModel, foeModel] = await Promise.all([
+  const [heroModel, foeModel, props] = await Promise.all([
     loadCharacter(scene, HERO_MODEL, { heightMetres: PLAYER_HEIGHT_METRES }),
     loadCharacter(scene, FOE_MODEL, { heightMetres: ENEMY_HEIGHT_METRES }),
+    // The arena's dressing, placed from the region data.
+    createProps(scene, region),
   ]);
+
+  // The braziers and torches came out of glTF without their fire; the sprites
+  // had no equivalent in the format and were dropped on export.
+  const flames = createFlames(scene, props.firePoints);
 
   const player = createPlayer(scene, region, spawnAt, assist, heroModel);
 
@@ -331,6 +339,8 @@ async function start(): Promise<() => void> {
     audio.dispose();
     impacts.dispose();
     rings.dispose();
+    flames.dispose();
+    props.dispose();
     enemy.dispose();
     chargeMeter.dispose();
     input.dispose();

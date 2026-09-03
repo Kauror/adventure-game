@@ -92,6 +92,246 @@
         "col": 22,
         "row": 11
       }
+    },
+    {
+      "type": "prop",
+      "id": "pillar-stump-30",
+      "tile": {
+        "col": 24,
+        "row": 15
+      },
+      "model": "pillar-stump",
+      "rotationDegrees": -62
+    },
+    {
+      "type": "prop",
+      "id": "pillar-stump-90",
+      "tile": {
+        "col": 16,
+        "row": 20
+      },
+      "model": "pillar-stump",
+      "rotationDegrees": -3
+    },
+    {
+      "type": "prop",
+      "id": "pillar-stump-150",
+      "tile": {
+        "col": 7,
+        "row": 15
+      },
+      "model": "pillar-stump",
+      "rotationDegrees": 62
+    },
+    {
+      "type": "prop",
+      "id": "pillar-stump-210",
+      "tile": {
+        "col": 7,
+        "row": 6
+      },
+      "model": "pillar-stump",
+      "rotationDegrees": 118
+    },
+    {
+      "type": "prop",
+      "id": "pillar-stump-270",
+      "tile": {
+        "col": 15,
+        "row": 1
+      },
+      "model": "pillar-stump",
+      "rotationDegrees": 177
+    },
+    {
+      "type": "prop",
+      "id": "pillar-stump-330",
+      "tile": {
+        "col": 24,
+        "row": 6
+      },
+      "model": "pillar-stump",
+      "rotationDegrees": -118
+    },
+    {
+      "type": "prop",
+      "id": "brazier-45",
+      "tile": {
+        "col": 22,
+        "row": 17
+      },
+      "model": "brazier",
+      "rotationDegrees": -45
+    },
+    {
+      "type": "prop",
+      "id": "brazier-135",
+      "tile": {
+        "col": 9,
+        "row": 17
+      },
+      "model": "brazier",
+      "rotationDegrees": 45
+    },
+    {
+      "type": "prop",
+      "id": "brazier-225",
+      "tile": {
+        "col": 9,
+        "row": 4
+      },
+      "model": "brazier",
+      "rotationDegrees": 135
+    },
+    {
+      "type": "prop",
+      "id": "brazier-315",
+      "tile": {
+        "col": 22,
+        "row": 4
+      },
+      "model": "brazier",
+      "rotationDegrees": -135
+    },
+    {
+      "type": "prop",
+      "id": "fallen-column-20",
+      "tile": {
+        "col": 26,
+        "row": 14
+      },
+      "model": "fallen-column",
+      "rotationDegrees": -72
+    },
+    {
+      "type": "prop",
+      "id": "fallen-column-160",
+      "tile": {
+        "col": 5,
+        "row": 14
+      },
+      "model": "fallen-column",
+      "rotationDegrees": 72
+    },
+    {
+      "type": "prop",
+      "id": "fallen-column-200",
+      "tile": {
+        "col": 5,
+        "row": 7
+      },
+      "model": "fallen-column",
+      "rotationDegrees": 108
+    },
+    {
+      "type": "prop",
+      "id": "fallen-column-340",
+      "tile": {
+        "col": 26,
+        "row": 7
+      },
+      "model": "fallen-column",
+      "rotationDegrees": -108
+    },
+    {
+      "type": "prop",
+      "id": "gate-arch-east",
+      "tile": {
+        "col": 25,
+        "row": 10
+      },
+      "model": "gate-arch",
+      "rotationDegrees": -93
+    },
+    {
+      "type": "prop",
+      "id": "wall-torch-east-a",
+      "tile": {
+        "col": 25,
+        "row": 13
+      },
+      "model": "wall-torch",
+      "rotationDegrees": -75
+    },
+    {
+      "type": "prop",
+      "id": "wall-torch-east-b",
+      "tile": {
+        "col": 25,
+        "row": 8
+      },
+      "model": "wall-torch",
+      "rotationDegrees": -105
+    },
+    {
+      "type": "prop",
+      "id": "crate-a",
+      "tile": {
+        "col": 4,
+        "row": 13
+      },
+      "model": "crate",
+      "rotationDegrees": 78
+    },
+    {
+      "type": "prop",
+      "id": "crate-b",
+      "tile": {
+        "col": 4,
+        "row": 8
+      },
+      "model": "crate",
+      "rotationDegrees": 102
+    },
+    {
+      "type": "prop",
+      "id": "crate-c",
+      "tile": {
+        "col": 3,
+        "row": 11
+      },
+      "model": "crate",
+      "rotationDegrees": 88
+    },
+    {
+      "type": "prop",
+      "id": "weapon-rack-a",
+      "tile": {
+        "col": 5,
+        "row": 15
+      },
+      "model": "weapon-rack",
+      "rotationDegrees": 67
+    },
+    {
+      "type": "prop",
+      "id": "weapon-rack-b",
+      "tile": {
+        "col": 5,
+        "row": 6
+      },
+      "model": "weapon-rack",
+      "rotationDegrees": 113
+    },
+    {
+      "type": "prop",
+      "id": "puddle-a",
+      "tile": {
+        "col": 6,
+        "row": 18
+      },
+      "model": "puddle",
+      "rotationDegrees": 52
+    },
+    {
+      "type": "prop",
+      "id": "puddle-b",
+      "tile": {
+        "col": 7,
+        "row": 4
+      },
+      "model": "puddle",
+      "rotationDegrees": 127
     }
   ]
 }

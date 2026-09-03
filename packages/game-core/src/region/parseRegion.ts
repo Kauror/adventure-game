@@ -38,7 +38,7 @@ const TERRAIN_KINDS: readonly TerrainKind[] = [
   'stone-broken',
   'rim',
 ];
-const OBJECT_TYPES: readonly RegionObjectType[] = ['player-spawn', 'enemy-spawn'];
+const OBJECT_TYPES: readonly RegionObjectType[] = ['player-spawn', 'enemy-spawn', 'prop'];
 
 function fail(message: string): never {
   throw new RegionParseError(message);
@@ -113,10 +113,26 @@ function parseObject(raw: unknown, index: number, width: number, height: number)
     fail(`objects[${index}].tile (${col}, ${row}) is outside the ${width}x${height} grid`);
   }
 
-  return {
+  const object: RegionObject = {
     type: type as RegionObjectType,
     id: asString(record['id'], `objects[${index}].id`),
     tile: { col, row },
+  };
+
+  if (type !== 'prop') {
+    return object;
+  }
+
+  // A prop without a model is a placement of nothing, which would fail silently
+  // as an invisible gap in the scene rather than as an error.
+  const model = asString(record['model'], `objects[${index}].model`);
+  const rotation = record['rotationDegrees'];
+
+  return {
+    ...object,
+    model,
+    rotationDegrees:
+      rotation === undefined ? 0 : asFiniteNumber(rotation, `objects[${index}].rotationDegrees`),
   };
 }
 
@@ -174,9 +190,17 @@ export function parseRegion(raw: unknown): Region {
 
   const region: Region = { schemaVersion: 1, id, nameKey, width, height, tiles, objects };
 
-  // A spawn inside a wall is the kind of mistake that is silent until a child
-  // is stuck in scenery, so it is a parse error rather than a runtime surprise.
+  // A spawn inside a wall is the kind of mistake that is silent until a child is
+  // stuck in scenery, so it is a parse error rather than a runtime surprise.
+  //
+  // Props are exempt, and deliberately: scenery standing on something solid is
+  // the normal case, not a mistake. A pillar rises from the arena rim and a
+  // torch is mounted on a wall — requiring walkable ground under a prop would
+  // forbid the two placements the design most obviously wants.
   for (const object of objects) {
+    if (object.type === 'prop') {
+      continue;
+    }
     if (!isWalkableTile(region, object.tile.col, object.tile.row)) {
       fail(
         `object "${object.id}" spawns on a non-walkable tile (${object.tile.col}, ${object.tile.row})`,
