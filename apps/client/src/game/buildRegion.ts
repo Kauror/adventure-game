@@ -130,6 +130,11 @@ function mergeInto(meshes: Mesh[], name: string, material: StandardMaterial): Me
 
   merged.name = name;
   merged.material = material;
+  // Scenery never moves and its material never changes. Freezing both takes
+  // them out of the per-frame matrix and material-dirty work entirely.
+  merged.freezeWorldMatrix();
+  merged.isPickable = false;
+  material.freeze();
   return merged;
 }
 

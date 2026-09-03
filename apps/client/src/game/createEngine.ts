@@ -1,5 +1,7 @@
 import { Engine } from '@babylonjs/core/Engines/engine';
 
+import { effectiveDevicePixelRatio } from './renderScale';
+
 export interface EngineHandle {
   readonly engine: Engine;
   /** Removes listeners and disposes the engine. */
@@ -14,9 +16,24 @@ export interface EngineHandle {
  * — so resize handling is foundational rather than polish.
  */
 export function createEngine(canvas: HTMLCanvasElement): EngineHandle {
+  /** The ratio this canvas can afford right now, at its current size. */
+  const ratio = (): number =>
+    effectiveDevicePixelRatio(
+      // Before the stylesheet lands the canvas can still be 0x0; fall back to
+      // the window so the first ratio is never computed from nothing.
+      canvas.clientWidth || window.innerWidth,
+      canvas.clientHeight || window.innerHeight,
+      window.devicePixelRatio,
+      window.location.search,
+    );
+
   const engine = new Engine(
     canvas,
-    true,
+    // Multisampling is a second full-resolution cost, and it buys least exactly
+    // where it is dearest: at 2x the backbuffer is already resolving the edges
+    // this would smooth. Kept for displays we render at 1x, where the jaggies
+    // are genuinely visible.
+    ratio() < 1.5,
     {
       stencil: true,
       powerPreference: 'high-performance',
@@ -24,12 +41,22 @@ export function createEngine(canvas: HTMLCanvasElement): EngineHandle {
       // it as fatal.
       doNotHandleContextLost: false,
     },
-    // adaptToDeviceRatio: render at the device pixel ratio so the scene is
-    // crisp on phones. Whether we can afford full DPR is a 0A-2 measurement.
-    true,
+    // adaptToDeviceRatio is deliberately off: the scaling level is set below
+    // from our own budget rather than from whatever the device reports.
+    false,
   );
 
+  // Babylon counts CSS pixels per rendered pixel, so a 2x ratio is a level of
+  // 0.5.
+  const applyScaling = (): void => {
+    engine.setHardwareScalingLevel(1 / ratio());
+  };
+  applyScaling();
+
   const handleResize = (): void => {
+    // Order matters: the budget depends on the canvas' new CSS size, and
+    // `resize()` is what sizes the backbuffer from the level.
+    applyScaling();
     engine.resize();
   };
 

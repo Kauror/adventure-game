@@ -1204,3 +1204,79 @@ Whether the characters read well _in motion on a phone_ — the animation was
 verified by driving the real state machine and measuring, and seen only in
 desktop screenshots. **0A.12, the device baseline, is the remaining 0A-2 task**,
 and the numbers it wants are exactly the ones this change makes interesting.
+
+## 0A.13 — the arena was slow, and it was fill rate
+
+The report was "extremely slow, unoptimized". Rather than guess, the scene was
+asked what it contained. It answered **280 meshes, 96 materials, 76 of them
+`PBRMaterial`, rendering at full device pixel ratio**.
+
+Three separate problems, and the interesting part is that only one of them was
+the one I would have guessed.
+
+### The scenery was drawn one box at a time
+
+Twenty-four props arrived as ~180 meshes, because the models carry a material
+per *face*. Merged into a single mesh with a multi-material — 39 submeshes for
+39 distinct materials, world matrices baked, `freezeWorldMatrix`,
+`isPickable = false`, materials frozen. **280 → 75 meshes.**
+
+The merge has one trap worth recording: the glTF loader inserts a `__root__`
+node that is a `Mesh` with no vertices, and merging one of those fails on vertex
+data that does not exist. Filtering to `getTotalVertices() > 0` is the fix, and
+the on-screen failure panel from 0A.11 caught it on the first reload instead of
+showing another grey rectangle.
+
+### The suspect that was innocent
+
+`foe.glb` carries **27 animation clips**, and the scene showed 25 animatables.
+That looks damning. It is not: the 25 are the targeted animations of the single
+clip that is playing, and the other 26 groups are stopped. Measuring took two
+minutes and saved a day of optimising something that was already correct.
+
+### The two that actually mattered, and both are fill rate
+
+**Materials.** Every `.glb` loads as `PBRMaterial`, because that is what glTF
+means. This art is flat-shaded boxes and 64-px nearest-sampled tiles under one
+hemispheric light; the PBR shader spends an image-based lighting term, a BRDF
+lookup and an energy-conservation pass to arrive at the flat colour the artist
+drew. `flatMaterials.ts` swaps them for `StandardMaterial`, carrying albedo,
+emissive, alpha and culling across, once per distinct material rather than once
+per mesh. **76 PBR materials, 0 still drawn.** Duck-typed on `getClassName()`
+rather than `instanceof`, so testing for PBR does not drag the PBR chunk into
+the first-paint bundle.
+
+**Pixels.** `createEngine` was constructed with `adaptToDeviceRatio: true` and a
+comment admitting that whether we could afford full DPR was a measurement still
+to be made. This is that answer: we cannot. A phone reports ratio 3, so a
+375×812 screen is 2.7 M pixels — **nine times** the same layout at 1× — and
+every one runs the fragment shader. `renderScale.ts` imposes a ratio cap of 2
+and a 1.4 M pixel budget, tighter wins, never below 1×, recomputed on resize
+because the budget depends on the canvas' current size. MSAA is now only
+requested when we render below 1.5×, where it is the cheapest and the only place
+it still buys anything.
+
+This is the piece the 30 fps cap could not help with. **Frame rate divides the
+cost per second; it does nothing about the cost per frame**, and half as many
+frames of a load the GPU cannot finish is still a load it cannot finish.
+
+`?dpr=` overrides both limits in either direction, so 0A.12 can compare honestly
+— the same escape hatch `?fps=` already provides.
+
+Also: `scene.skipPointerMovePicking = true`. Nothing in this game picks — the
+controls are DOM over the canvas — so Babylon was prepared to consider a ray
+cast on every pointer move, which with a thumb on the joystick is every frame.
+
+### What was *not* done
+
+The player character is **36 meshes and 36 materials — one per box face**. It is
+now 36 cheap materials rather than 36 expensive ones, but the right fix is an
+atlased single-material export from the art side, not more code. Flagged, not
+worked around.
+
+### Cost
+
+**325 tests** (170 game-core + 155 client). No measured frame time: the local
+preview pane stopped compositing, and a desktop GPU figure would not predict an
+iPhone anyway. The structural numbers are the evidence; **0A.12 on the phone is
+the measurement that settles it.**

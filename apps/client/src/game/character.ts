@@ -7,6 +7,7 @@ import type { Scene } from '@babylonjs/core/scene';
 
 import type { CharacterClip } from './characterClips';
 import { registerGltfLoader } from './gltf';
+import { flattenPbrMaterials } from './flatMaterials';
 import { createRigAnimator } from './rigAnimator';
 import { CLIP_NAMES, isLooping } from './characterClips';
 
@@ -179,6 +180,11 @@ export async function loadCharacter(
     ).find((node) => node !== null) ?? null;
 
   const meshes = root.getChildMeshes(false);
+
+  // Before the tint map is built below: it holds material references, and
+  // tinting one the meshes no longer point at would silently do nothing.
+  const flattened = flattenPbrMaterials(scene, meshes);
+
   const materials = new Map<number, { emissiveColor: Color3 }>();
   for (const mesh of meshes) {
     const material = mesh.material as ({ emissiveColor?: Color3 } & { uniqueId: number }) | null;
@@ -293,6 +299,7 @@ export async function loadCharacter(
         group.dispose();
       }
       root.dispose(false, true);
+      flattened.dispose();
       container.dispose();
     },
   };

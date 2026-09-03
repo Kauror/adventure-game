@@ -1,9 +1,12 @@
 import type { Region } from '@adventure/game-core';
 import { elevationAtWorld, tileCentreToWorld } from '@adventure/game-core';
+import type { Material } from '@babylonjs/core/Materials/material';
 import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader';
+import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { Scene } from '@babylonjs/core/scene';
 
+import { flattenPbrMaterials } from './flatMaterials';
 import { registerGltfLoader } from './gltf';
 
 /**
@@ -106,15 +109,79 @@ export async function createProps(scene: Scene, region: Region): Promise<Props> 
     }
   }
 
+  // Twenty-four props arrive as ~180 separate meshes, because the models carry
+  // a material per face. That is ~180 draw calls a frame for scenery that never
+  // moves, and it was most of why the arena ran badly.
+  //
+  // Merged into a single mesh with a multi-material, the cost becomes one draw
+  // call per *distinct material* rather than per mesh — the six pillars stop
+  // being six copies of five draw calls and become part of five. World matrices
+  // are baked in, which is exactly what makes it safe: none of this is ever
+  // going to move.
+  const parts = roots.flatMap((root) => root.getChildMeshes(false));
+
+  // Before the merge, so the multi-material it builds is made of the flat
+  // materials rather than of the PBR ones.
+  const flattened = flattenPbrMaterials(scene, parts);
+
+  let merged: Mesh | null = null;
+
+  if (parts.length > 0) {
+    merged = Mesh.MergeMeshes(
+      // Geometry only. The glTF loader inserts a `__root__` node that is a Mesh
+      // with no vertices, and merging one of those fails on vertex data that
+      // does not exist.
+      parts.filter(
+        (mesh): mesh is Mesh =>
+          mesh instanceof Mesh && mesh.getTotalVertices() > 0 && mesh.material !== null,
+      ),
+      true,
+      true,
+      undefined,
+      false,
+      // Keep the per-face materials, as submeshes of one mesh.
+      true,
+    );
+
+    if (merged !== null) {
+      merged.name = 'region-props';
+      // Static scenery: stop recomputing a matrix that cannot change, and stop
+      // re-evaluating materials that will never be dirty.
+      merged.freezeWorldMatrix();
+      merged.isPickable = false;
+      // A multi-material is a list; freezing it does not reach the materials it
+      // holds, and those are the ones the renderer checks.
+      merged.material?.freeze();
+      for (const sub of subMaterialsOf(merged.material)) {
+        sub.freeze();
+      }
+    }
+  }
+
+  // The empty parents have served their purpose — the geometry is baked.
+  for (const root of roots) {
+    root.dispose(false, false);
+  }
+
   return {
     firePoints,
     dispose: () => {
-      for (const root of roots) {
-        root.dispose(false, true);
-      }
+      merged?.dispose();
+      flattened.dispose();
       for (const container of containers.values()) {
         container.dispose();
       }
     },
   };
+}
+
+/** The materials inside a multi-material, or the material itself if it is plain. */
+function subMaterialsOf(material: Material | null): readonly Material[] {
+  if (material === null) {
+    return [];
+  }
+  const multi = material as { subMaterials?: (Material | null)[] };
+  return multi.subMaterials === undefined
+    ? [material]
+    : multi.subMaterials.filter((sub): sub is Material => sub !== null);
 }

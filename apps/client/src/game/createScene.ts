@@ -17,6 +17,12 @@ export function createScene(engine: Engine, region: Region): Scene {
   const scene = new Scene(engine);
   scene.clearColor = new Color4(0.05, 0.06, 0.08, 1);
 
+  // Nothing in this game picks: the controls are DOM elements over the canvas,
+  // and the world is never touched directly. Left on, Babylon would consider
+  // casting a ray into the scene on every pointer move — which, with a thumb
+  // held down on a joystick, is every frame.
+  scene.skipPointerMovePicking = true;
+
   const light = new HemisphericLight('scene-light', new Vector3(0.4, 1, 0.2), scene);
   light.intensity = 0.95;
 
