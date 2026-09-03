@@ -5,40 +5,49 @@ import type { ChargeLamp } from './chargeZone';
 import { chargeZone } from './chargeZone';
 
 /**
- * The hammer's charge indicator.
+ * The hammer's charge indicator: a sweeping marker against a marked zone.
  *
- * Three shapes so far, each one a correction of the last.
+ * Four shapes so far, and the differences between them are the whole design.
  *
- *  1. A track with the sweet spot drawn on it — right idea (PLAN §11 wants the
- *     timing *visible*, not a reaction test), wrong shape. By the time it
- *     carried a GREAT band, a PERFECT band, a fill and a travelling head, an
- *     adult on a phone called it too many blocks.
+ *  1. A track carrying two bands, a fill *and* a travelling head — five
+ *     overlapping things, which an adult on a phone called too many blocks.
  *  2. Three traffic-light lamps — legible, but literal enough to read as
- *     furniture rather than as part of the game.
- *  3. This: **one bar that fills, and changes colour as it crosses the bands.**
+ *     furniture sitting on the screen rather than as part of the game.
+ *  3. One bar that filled and changed colour — compact, but a filling bar tells
+ *     you where you *are* without ever saying where you are *going*.
+ *  4. This, which is the Gears of War active-reload bar: the target is drawn on
+ *     the track and a crisp marker sweeps toward it.
  *
- * The traffic light survives as meaning rather than as pictures. The fill runs
- * red → amber → green, and green *is* the PERFECT band; hold too long and it
- * runs back down through amber to red, which is exactly what overcharging is.
- * Releasing on red still lands the hit — red means "you get the ordinary one",
- * never "you failed" (every release lands).
+ * The difference from (1) is the fill. Removing it is what makes this readable:
+ * a fill and a marker are two things racing along the same track saying the same
+ * thing, and the eye has to work out which to watch. With the fill gone there is
+ * one moving object and one place it is heading, which is the entire mechanic —
+ * and anticipation comes for free, because you can see the marker approaching
+ * rather than having to catch a colour change.
  *
- * One element carries two facts at once, which is why it beats both earlier
- * shapes: **how far along you are** (the fill, continuous, so the moment can be
- * seen approaching) and **what you would get** (the colour). Anticipation comes
- * from the glow ramping up through amber, so green never has to be caught cold
- * in the fraction of a second amber lasts.
+ * Colour keeps the meaning the traffic light established: amber is GREAT, green
+ * is PERFECT, and everywhere else is a plain hit. Releasing outside the zones
+ * still lands — every release lands (PLAN §11) — so the marker never has to be
+ * caught, only aimed at.
  *
- * Assist widens the bands, so an assisted player simply gets a longer green.
+ * Assist widens the bands, so an assisted player simply gets a bigger target.
  * Nothing announces that the setting is on.
  *
- * Updated by writing styles every frame rather than re-rendering the Preact
+ * Updated by writing transforms every frame rather than re-rendering the Preact
  * overlay, for the same reason as the joystick: reconciling the HUD at 60 fps on
  * a phone wastes the frame budget.
  */
 export interface ChargeMeter {
   readonly update: (progress: number, charging: boolean) => void;
   readonly dispose: () => void;
+}
+
+function band(className: string, startFraction: number, endFraction: number): HTMLElement {
+  const element = document.createElement('div');
+  element.className = className;
+  element.style.left = `${startFraction * 100}%`;
+  element.style.width = `${(endFraction - startFraction) * 100}%`;
+  return element;
 }
 
 export function createChargeMeter(container: HTMLElement, bands: TimingBands): ChargeMeter {
@@ -49,9 +58,28 @@ export function createChargeMeter(container: HTMLElement, bands: TimingBands): C
   const track = document.createElement('div');
   track.className = 'ui-charge__track';
 
-  const fill = document.createElement('div');
-  fill.className = 'ui-charge__fill';
-  track.appendChild(fill);
+  const toFraction = (seconds: number): number => seconds / HAMMER.chargeSeconds;
+
+  track.appendChild(
+    band(
+      'ui-charge__band ui-charge__band--great',
+      toFraction(bands.great.startSeconds),
+      toFraction(bands.great.endSeconds),
+    ),
+  );
+  track.appendChild(
+    band(
+      'ui-charge__band ui-charge__band--perfect',
+      toFraction(bands.perfect.startSeconds),
+      toFraction(bands.perfect.endSeconds),
+    ),
+  );
+
+  // Full width with only a left edge drawn, so a percentage translate moves it
+  // by that fraction of the *track* rather than of itself.
+  const marker = document.createElement('div');
+  marker.className = 'ui-charge__marker';
+  track.appendChild(marker);
 
   root.appendChild(track);
   container.appendChild(root);
@@ -65,9 +93,8 @@ export function createChargeMeter(container: HTMLElement, bands: TimingBands): C
         root.classList.toggle('ui-charge--active', charging);
         wasCharging = charging;
         if (!charging) {
-          // Reset rather than freezing mid-sweep, so the next press starts red
-          // and empty.
-          fill.style.transform = 'scaleX(0)';
+          // Back to the start rather than frozen mid-sweep.
+          marker.style.transform = 'translateX(0%)';
           root.classList.remove('ui-charge--amber', 'ui-charge--green');
           lastLamp = null;
         }
@@ -77,22 +104,17 @@ export function createChargeMeter(container: HTMLElement, bands: TimingBands): C
       }
 
       const clamped = Math.min(1, Math.max(0, progress));
-      fill.style.transform = `scaleX(${clamped})`;
+      marker.style.transform = `translateX(${clamped * 100}%)`;
 
       const zone = chargeZone(clamped * HAMMER.chargeSeconds, bands);
 
-      // Guarded: touching classList every frame would invalidate style for
-      // nothing 60 times a second.
+      // Guarded: touching classList every frame would invalidate style sixty
+      // times a second for nothing.
       if (zone.lamp !== lastLamp) {
         root.classList.toggle('ui-charge--amber', zone.lamp === 'amber');
         root.classList.toggle('ui-charge--green', zone.lamp === 'green');
         lastLamp = zone.lamp;
       }
-
-      // The approach. Amber lasts under two tenths of a second, so it cannot be
-      // the only warning that green is coming — the bar brightens through it.
-      const warmth = zone.lamp === 'amber' ? zone.progress : 0;
-      root.style.setProperty('--charge-warmth', `${warmth}`);
     },
     dispose: () => {
       root.remove();

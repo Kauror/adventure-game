@@ -266,22 +266,21 @@ body {
 }
 
 /*
- * Charge meter: one bar that fills, and changes colour as it crosses the bands.
+ * Charge meter: a marker sweeping toward a marked zone.
  *
- * Keeps the traffic light's *meaning* — red not yet, amber nearly, green now —
- * without three literal lamps sitting on the screen. One element carries both
- * how far along you are and what you would get for releasing.
+ * The Gears of War active-reload shape. There is deliberately **no fill** — a
+ * fill and a marker are two things racing along the same track saying the same
+ * thing, and that is what made the first version unreadable. One moving object,
+ * one place it is heading.
  *
  * Sits above the action buttons and below the character, so the eyes barely
  * leave the fight.
  */
 .ui-charge {
-  --charge-warmth: 0;
-
   position: absolute;
   bottom: calc(var(--ui-safe-bottom) + 104px);
   left: 50%;
-  width: min(300px, 54vw);
+  width: min(360px, 62vw);
   opacity: 0;
   transform: translateX(-50%);
   transition: opacity 120ms ease-out;
@@ -292,58 +291,69 @@ body {
 }
 
 .ui-charge__track {
-  overflow: hidden;
-  height: 22px;
-  border: 2px solid rgb(255 255 255 / 30%);
-  border-radius: 11px;
-  background: rgb(0 0 0 / 55%);
-  transition: box-shadow 90ms ease-out;
+  position: relative;
+  height: 18px;
+  border: 2px solid rgb(255 255 255 / 34%);
+  border-radius: 9px;
+  background: rgb(0 0 0 / 60%);
+  transition:
+    box-shadow 90ms ease-out,
+    border-color 90ms ease-out;
 }
 
-.ui-charge__fill {
-  width: 100%;
+/* The target, drawn on the track and never hidden (PLAN §11). */
+.ui-charge__band {
+  position: absolute;
+  top: 0;
   height: 100%;
-  transform: scaleX(0);
-  transform-origin: left center;
-  border-radius: 9px;
-  background: rgb(235 60 60);
-  transition: background-color 110ms ease-out;
-  will-change: transform;
+}
+
+.ui-charge__band--great {
+  background: rgb(255 176 40 / 45%);
+}
+
+.ui-charge__band--perfect {
+  /* Taller than the track: shape distinguishes it, not colour alone, for the
+     children who cannot yet tell the colours apart. */
+  top: -4px;
+  height: calc(100% + 8px);
+  border-radius: 3px;
+  background: rgb(70 230 110 / 85%);
 }
 
 /*
- * Amber warms as it runs, so green is never caught cold in the fraction of a
- * second amber lasts. `--charge-warmth` is written per frame by the meter.
+ * The sweeping marker.
+ *
+ * Full width with only its left edge drawn, so a percentage translate moves it
+ * by that fraction of the track instead of of itself.
  */
-.ui-charge--amber .ui-charge__fill {
-  background: rgb(255 176 40);
+.ui-charge__marker {
+  position: absolute;
+  top: -6px;
+  left: 0;
+  width: 100%;
+  height: calc(100% + 12px);
+  border-left: 4px solid rgb(255 255 255 / 95%);
+  pointer-events: none;
+  will-change: transform;
 }
 
+/* Amber says nearly; green is the only state that glows, because it is the
+   only one that means act now. */
 .ui-charge--amber .ui-charge__track {
-  box-shadow: 0 0 calc(var(--charge-warmth) * 16px) rgb(255 176 40 / 70%);
-}
-
-/* Green is the only state that glows and pulses: it is the one that means act. */
-.ui-charge--green .ui-charge__fill {
-  background: rgb(70 230 110);
+  border-color: rgb(255 200 110 / 70%);
 }
 
 .ui-charge--green .ui-charge__track {
   border-color: rgb(150 255 180 / 90%);
   box-shadow:
-    0 0 0 3px rgb(70 230 110 / 40%),
-    0 0 20px 4px rgb(70 230 110 / 55%);
-  animation: ui-charge-go 300ms ease-in-out infinite alternate;
+    0 0 0 3px rgb(70 230 110 / 35%),
+    0 0 18px 4px rgb(70 230 110 / 50%);
 }
 
-@keyframes ui-charge-go {
-  from {
-    transform: scaleY(1);
-  }
-
-  to {
-    transform: scaleY(1.16);
-  }
+.ui-charge--green .ui-charge__marker {
+  border-left-color: rgb(255 255 255);
+  filter: drop-shadow(0 0 6px rgb(120 255 160));
 }
 
 .ui-action--attack {
