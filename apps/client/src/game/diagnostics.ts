@@ -73,7 +73,9 @@ export function createDiagnostics(engine: Engine, targetFps: () => number): Diag
       fps: Math.round(engine.getFps()),
       targetFps: targetFps(),
       frameMs: Math.round(engine.getDeltaTime() * 10) / 10,
-      viewport: `${window.innerWidth}×${window.innerHeight}`,
+      // The zoom factor is here because a zoomed page is indistinguishable
+      // from a broken layout by eye, and the two need opposite fixes.
+      viewport: `${window.innerWidth}×${window.innerHeight} @${(window.visualViewport?.scale ?? 1).toFixed(2)}×`,
       buffer: `${engine.getRenderWidth()}×${engine.getRenderHeight()}`,
     }),
   };

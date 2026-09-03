@@ -3,15 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <!--
-      `maximum-scale` and `user-scalable=no` still work on Android, and iOS
-      Safari has ignored both since iOS 10. Zoom is actually prevented by
-      `touch-action` across the #app subtree plus the gesture handlers in
-      input/preventZoom.ts — do not trust this line alone.
+      No `maximum-scale`, and no `user-scalable=no`, on purpose.
+
+      Those two did nothing useful and one real harm. Safari has ignored them
+      since iOS 10, so they never prevented the accidental zoom they were there
+      for — `touch-action` across the #app subtree does that. But a **home-screen
+      install** does honour them, and there is no `aA` menu in a standalone web
+      app: a phone that came up zoomed had every escape disabled and could not be
+      recovered without deleting the app. Which is exactly what happened.
+
+      Accidental zoom is prevented where it actually occurs. Deliberate zoom is
+      left alone, because it is how a person gets back.
     -->
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
