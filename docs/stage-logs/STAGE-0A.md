@@ -942,3 +942,135 @@ resolvable now, on a phone, which is exactly what Kid Test 0 is for.
 Open items carried forward: the repository still has **no git remote**, so five commits on one
 Windows disk remain the only copy; and there is no mute control, which one sitting with a
 five-year-old may well demand.
+
+## 2026-09-03 — Adult playtest readability iteration
+
+An adult played the published build on an iPhone. The half of the toy that was
+about _moving_ came back well — dynamic joystick preferred, speed and
+responsiveness good, dodge working, no corner or wall problem, obstacles
+readable, controls not in the way, wind-up noticeable, quick to load, good
+performance, and the tester voluntarily replaying fights to improve. That last
+one is the only unprompted signal that matters at this stage, and it was there.
+
+The half about _reading_ the combat mostly failed. This iteration is a response
+to that list, and to nothing else.
+
+### Three findings that had causes, not opinions
+
+1. **There was no hammer.** The player was a box; an attack was a brief change of
+   its colour and scale. "Could not tell the tap attack worked" and "did not feel
+   like a hammer" were the same bug seen twice. There is now a real weapon on a
+   real arc — it lifts the instant the button goes down, cocks back behind the
+   shoulder as the charge fills, and comes down through an overhead chop that
+   passes above the player's head on the way. Weight comes from the timing of
+   that arc, not from slowing the game down.
+2. **The health pips never changed during play.** They were fed by the debug
+   overlay's poll, which only runs while that overlay is open. "Could not tell I
+   was losing health" was not a presentation problem: the number on screen was
+   frozen unless a developer happened to have the readout showing. Health has its
+   own always-on poll now, and the pips are 34 px rather than 20 px.
+3. **The danger circle was a lie.** The enemy's swing is frontal — 55° either
+   side — and it locks its facing at the wind-up, so sidestepping beats it. A
+   full circle said "everything in here is dangerous", which told the player
+   nothing about how to respond and was not true. It is now a wedge built from
+   the same two constants `isWithinMeleeArc` uses to decide the hit, and
+   `readability.test.ts` fails if those two ever disagree.
+
+### Timing, slowed enough to be seen
+
+|                | was    | now        |
+| -------------- | ------ | ---------- |
+| Charge         | 0.85 s | **1.5 s**  |
+| PERFECT band   | 0.26 s | **0.34 s** |
+| GREAT band     | 0.44 s | **0.70 s** |
+| Tap threshold  | 0.18 s | **0.22 s** |
+| Light recovery | 0.18 s | **0.28 s** |
+| Charging speed | 0.45×  | **0.65×**  |
+| Enemy recovery | 1.0 s  | **1.5 s**  |
+
+The roadmap permits lengthening the charge for readability and forbids
+shortening it; a mechanic nobody can see is not a difficulty setting.
+
+The enemy's recovery was not a balance decision. The slower hammer made a
+counterattack take longer than the window meant to contain it, and the existing
+fairness tests caught exactly that — the counter window would have become a
+window you cannot finish an attack inside. A green disc now closes over it, so
+both the opening and its ending are visible.
+
+A charged hit lands about four times a tap, rather than one and a half times.
+"The charged hit felt similar to an ordinary attack" was arithmetically true.
+
+### Where the timing mechanic actually lives now
+
+Not in the meter. The **hammer head brightens in GREAT and flares white at
+PERFECT**, so the sweet spot can be learned while watching the enemy — which is
+where a fighting child is looking. The meter still exists, moved to the bottom
+centre at nearly twice the size, with a travelling head and a PERFECT band drawn
+taller than the track so shape distinguishes it and not colour alone. Both are
+keyed to the same seconds, so they cannot disagree.
+
+Grades also differ in **kind** and not only degree: only a heavy swing draws a
+ground shockwave, and how far it travels says how well it was timed. Every
+previous channel was a matter of degree, which is invisible without a
+side-by-side comparison the player never gets.
+
+### Audio on iPhone
+
+Most likely cause, and it is invisible from any log: **iOS routes WebAudio
+through the "ambient" audio session, which the ring/silent switch mutes.** The
+context reports `running`, every node plays, and nothing is heard. The unlock now
+claims `navigator.audioSession.type = 'playback'` where Safari supports it,
+listens in the **capture** phase across five gesture types so a control that
+stops propagation cannot break it, plays a silent priming buffer inside the
+gesture, and handles bfcache restores as well as visibility changes.
+
+The debug overlay reports context state, unlocked, _what_ unlocked it, and the
+session category — four facts, because "no sound" has four different causes and
+they need different fixes. Confirmed in the browser: the capture-phase listener
+records `keydown` as the unlock. **The mute-switch behaviour itself is not
+verified** — it needs the phone, and both the switch position and the result
+should be written down when it is.
+
+### Verified by geometry, since it could not be verified by eye
+
+The automation pane composited for two screenshots — long enough to confirm the
+closer camera, the hammer on the player, the larger hearts, the smaller buttons
+and the audio readout — and then stopped driving `requestAnimationFrame`, as it
+has all through this project.
+
+So the swing is pinned by `hammer.test.ts`, which drives the real attack state
+machine through a headless `NullEngine` and checks where the head actually goes:
+above the player at rest, behind and low when cocked, more than a metre higher
+at the peak of the arc, past 0.8 m in front during the strike, never below the
+floor, and back to rest when spent. It earned its place immediately by catching
+that my own comment described the wind-up backwards — I had written "overhead
+and behind" for a pose that is behind and _low_.
+
+### UI
+
+Action buttons draw at 68 px with the touch target kept at 96 px by an invisible
+ring, so the screen is less covered without making the targets small. Hearts
+enlarged and animated. A screen-edge flash on damage plus a stagger on the body,
+with camera shake _reduced_ from 0.22 to 0.14 — shake big enough to notice is
+also big enough to disturb steering with the other thumb. Portrait notice is now
+`Pööra seadet` above an inline rotate diagram, since most of the players cannot
+read.
+
+### Deliberately not done
+
+The tester found fighting one enemy repetitive and wanted another. That is the
+expected result and not a problem to solve here: one enemy exists to prove the
+combat vocabulary, and Kid Test 0 asks whether that vocabulary is legible.
+Sprint, jump and dash remain notes. Nothing was added.
+
+### Deployed
+
+Commit `6545df67a975`. **249 tests** (165 game-core + 84 client), `pnpm check`
+green.
+
+### Still open
+
+The mute-switch question above; whether the closer camera is close enough;
+whether the tap threshold at 0.22 s suits a five-year-old's press; and every
+feel judgement in this entry, all of which are now answerable on a phone rather
+than by argument.

@@ -249,9 +249,15 @@ body {
  */
 .ui-charge {
   position: absolute;
-  bottom: calc(var(--ui-safe-bottom) + 18px);
+  /*
+   * Above the action buttons rather than beside them. On a 667 px-wide
+   * landscape phone a centred 340 px meter would clip the attack button;
+   * clearing them vertically keeps it central and large on every screen
+   * instead of shrinking it to fit the smallest one.
+   */
+  bottom: calc(var(--ui-safe-bottom) + 104px);
   left: 50%;
-  width: min(340px, 60vw);
+  width: min(360px, 62vw);
   transform: translateX(-50%);
   opacity: 0;
   transition: opacity 120ms ease-out;
