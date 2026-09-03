@@ -8,6 +8,31 @@ No external assets have been added yet. The art direction is deliberately not
 chosen (PLAN §2 selects CC0/low-cost low-poly packs; the representative pack is
 picked in PREP-04 when the rig pipeline work in 0A-2 needs it).
 
+### Videvikumaa art set — arena surfaces and props
+
+- **Author:** generated in this project's own Claude Design canvas
+- **Source:** internal. Not downloaded, not sampled, not derived from third-party
+  images. The handoff manifest states this explicitly per file.
+- **Licence:** the project's own. No third-party attribution obligation.
+- **Files:** `apps/client/public/textures/{ground,stone,props}/` (21 PNG),
+  `apps/client/public/models/props/` (11 GLB).
+- **Conventions that must not be broken:** 1 unit = 1 metre and y-up, matching
+  ADR 0002. 64 px = 1 m for ground and stone. Pixel art, so **NEAREST sampling
+  with mipmaps off** — filtering it turns crisp slabs into mush. Models are
+  base-origin, so a prop placed at a floor position needs no vertical offset,
+  and their textures are **embedded** in the GLB rather than referenced beside
+  it.
+- **Known gaps, from the manifest:** the brazier and torch flames were
+  `THREE.Sprite` billboards, which glTF cannot carry — the GLBs hold only the
+  iron and coals geometry, and the flames must be rebuilt in Babylon from
+  `props/flame_sprite.png` and `props/glow_sprite.png`. Emissive _intensity_ is
+  also not carried by glTF and has to be re-set on this side.
+- **Deliberately excluded:** the reference images the art was directed from are
+  of unknown provenance and were never shipped. Nothing here is traced or
+  sampled from them.
+
+---
+
 ### Kenney — Blocky Characters 2.0
 
 - **Author:** Kenney (Kenney Vleugels)
