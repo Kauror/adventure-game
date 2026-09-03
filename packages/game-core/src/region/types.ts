@@ -1,5 +1,27 @@
-/** Terrain kinds understood by the v1 region format. */
-export type TerrainKind = 'floor' | 'wall' | 'platform';
+/**
+ * Terrain kinds understood by the v1 region format.
+ *
+ * Purely presentational: what a tile *is made of*, never what it does. The rules
+ * read `walkable` and `elevation` and nothing else, so adding a surface here can
+ * change how a region looks and can never change how it plays — which is what
+ * makes it safe to keep widening as the art direction asks for more.
+ *
+ * `floor`, `wall` and `platform` are the original generic three. The rest name
+ * real authored surfaces from the art set.
+ */
+export type TerrainKind =
+  | 'floor'
+  | 'wall'
+  | 'platform'
+  | 'flagstone'
+  | 'flagstone-cracked'
+  | 'flagstone-teal'
+  | 'moss'
+  | 'dirt'
+  | 'dirt-mossy'
+  | 'stone'
+  | 'stone-broken'
+  | 'rim';
 
 /** What a single legend character means. */
 export interface TileType {

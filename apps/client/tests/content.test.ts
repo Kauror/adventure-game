@@ -60,18 +60,49 @@ describe('test arena content', () => {
     expect(interiorWalls).toBeGreaterThan(0);
   });
 
-  it('includes a raised platform as the elevation example', () => {
-    const elevated: number[] = [];
+  it('is a raised fighting floor ringed by lower ground', () => {
+    // The arena is a platform with steps around it — which is what the art
+    // set's rim_step tile is for — so the region has to carry two ground
+    // levels. Note the test does *not* claim every raised tile is walkable:
+    // the rim is a solid block standing on the raised floor, so it shares that
+    // base height while being something you cannot walk on.
+    let raisedFloor = 0;
+    let groundLevelFloor = 0;
+
     for (let row = 0; row < region.height; row += 1) {
       for (let col = 0; col < region.width; col += 1) {
         const tile = tileAt(region, col, row);
-        if (tile !== undefined && tile.elevation > 0) {
-          elevated.push(tile.elevation);
-          expect(tile.walkable).toBe(true);
+        if (tile === undefined || !tile.walkable) {
+          continue;
+        }
+        if (tile.elevation > 0) {
+          raisedFloor += 1;
+        } else {
+          groundLevelFloor += 1;
         }
       }
     }
-    expect(elevated.length).toBeGreaterThan(0);
+
+    expect(raisedFloor).toBeGreaterThan(0);
+    expect(groundLevelFloor).toBeGreaterThan(0);
+  });
+
+  it('uses the authored surfaces rather than the generic placeholders', () => {
+    const used = new Set<string>();
+    for (let row = 0; row < region.height; row += 1) {
+      for (let col = 0; col < region.width; col += 1) {
+        const tile = tileAt(region, col, row);
+        if (tile !== undefined) {
+          used.add(tile.terrain);
+        }
+      }
+    }
+
+    // The arena is dressed from the art set, not built from 'floor'/'wall'.
+    expect(used).toContain('flagstone');
+    expect(used).toContain('moss');
+    expect(used).toContain('rim');
+    expect(used).not.toContain('floor');
   });
 
   it('places a player spawn and enemy spawns on walkable ground', () => {

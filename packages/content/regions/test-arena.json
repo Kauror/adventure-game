@@ -6,41 +6,66 @@
     "#": {
       "walkable": false,
       "elevation": 0,
-      "terrain": "wall"
+      "terrain": "stone"
+    },
+    "R": {
+      "walkable": false,
+      "elevation": 0.4,
+      "terrain": "rim"
     },
     ".": {
       "walkable": true,
-      "elevation": 0,
-      "terrain": "floor"
+      "elevation": 0.4,
+      "terrain": "flagstone"
     },
-    "+": {
+    "c": {
       "walkable": true,
-      "elevation": 1,
-      "terrain": "platform"
+      "elevation": 0.4,
+      "terrain": "flagstone-cracked"
+    },
+    "t": {
+      "walkable": true,
+      "elevation": 0.4,
+      "terrain": "flagstone-teal"
+    },
+    "m": {
+      "walkable": true,
+      "elevation": 0.4,
+      "terrain": "moss"
+    },
+    "d": {
+      "walkable": true,
+      "elevation": 0,
+      "terrain": "dirt"
+    },
+    "D": {
+      "walkable": true,
+      "elevation": 0,
+      "terrain": "dirt-mossy"
     }
   },
   "rows": [
     "################################",
-    "#..............................#",
-    "#..#######...........########..#",
-    "#..#.....#.......#...#......#..#",
-    "#..#.....#..#...............#..#",
-    "#..#.....#..................#..#",
-    "#..#.....#...........########..#",
-    "#..###..##.....................#",
-    "#..............................#",
-    "#............+++++++...........#",
-    "#............+++++++......#....#",
-    "#............+++++++.......#...#",
-    "#.....##.....+++++++...........#",
-    "#............+++++++...........#",
-    "#..............................#",
-    "#..............................#",
-    "#...######..#######..######....#",
-    "#..............................#",
-    "#.......................#......#",
-    "#........#.....................#",
-    "#..............................#",
+    "#DddDDDdddddRRRRRRRRdddDddDdddD#",
+    "#ddddDddddRRm.m..mmmRRDdddDdDDD#",
+    "#dddDddddRRm.c..ccc..RRDDDdDdDd#",
+    "#DddddddRmtt........ttmRDDddDdd#",
+    "#dDdddDRRtttc...c.c.tttRRDDDddD#",
+    "#dDddddRmtt.c.c.c....ttmRDddDdd#",
+    "#DddDdRm.................Rddddd#",
+    "#dDddDR.....d.....c.....mRdddDD#",
+    "#dDddD.m....cc....c....c..ddDdd#",
+    "#ddddd......c...........c.ddDdD#",
+    "#ddDDd.....c..c.....c.....ddDdd#",
+    "#DdDdD.m.c...c..c...c.c.m.DdddD#",
+    "#DDdddRm.....c..cccd.....Rddddd#",
+    "#dDDDdR...c.....cc..c...mRdDDDd#",
+    "#ddDddDR.tt.c.c......ttmRdDddDD#",
+    "#dDddDdRRttt...c....tttRRddDDdd#",
+    "#dddddddR.tt........tt.Rddddddd#",
+    "#ddddddDdRRm....c...mRRDddddddD#",
+    "#DdDDDddddRRmmm..m.mRRDdDddDddd#",
+    "#DddddddddddRRRRRRRRdDdDdddDddD#",
     "################################"
   ],
   "objects": [
@@ -48,24 +73,24 @@
       "type": "player-spawn",
       "id": "spawn-player",
       "tile": {
-        "col": 10,
-        "row": 14
+        "col": 16,
+        "row": 16
       }
     },
     {
       "type": "enemy-spawn",
       "id": "spawn-enemy-near",
       "tile": {
-        "col": 20,
-        "row": 17
+        "col": 16,
+        "row": 6
       }
     },
     {
       "type": "enemy-spawn",
       "id": "spawn-enemy-far",
       "tile": {
-        "col": 26,
-        "row": 8
+        "col": 22,
+        "row": 11
       }
     }
   ]

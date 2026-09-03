@@ -18,7 +18,26 @@ export class RegionParseError extends Error {
   }
 }
 
-const TERRAIN_KINDS: readonly TerrainKind[] = ['floor', 'wall', 'platform'];
+/**
+ * Kept in step with `TerrainKind` by hand, because the validator has to reject
+ * an unknown surface at load rather than let it reach the renderer, and a type
+ * cannot check a string that arrived from a JSON file.
+ * `tests/parseRegion.test.ts` asserts the two lists agree.
+ */
+const TERRAIN_KINDS: readonly TerrainKind[] = [
+  'floor',
+  'wall',
+  'platform',
+  'flagstone',
+  'flagstone-cracked',
+  'flagstone-teal',
+  'moss',
+  'dirt',
+  'dirt-mossy',
+  'stone',
+  'stone-broken',
+  'rim',
+];
 const OBJECT_TYPES: readonly RegionObjectType[] = ['player-spawn', 'enemy-spawn'];
 
 function fail(message: string): never {

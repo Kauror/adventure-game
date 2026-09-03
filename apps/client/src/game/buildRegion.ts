@@ -1,5 +1,5 @@
-import type { Region } from '@adventure/game-core';
-import { TILE_METRES, regionSizeMetres, tileAt, tileCentreToWorld } from '@adventure/game-core';
+import type { Region, TerrainKind } from '@adventure/game-core';
+import { TILE_METRES, tileAt, tileCentreToWorld } from '@adventure/game-core';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { Color3 } from '@babylonjs/core/Maths/math.color';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
@@ -9,52 +9,46 @@ import type { Scene } from '@babylonjs/core/scene';
 import '@babylonjs/core/Meshes/Builders/groundBuilder';
 import '@babylonjs/core/Meshes/Builders/boxBuilder';
 
-import { createRegionTextures } from './regionTextures';
+import { createRegionMaterials } from './regionTextures';
 
 /** Height of a wall block, in metres. Tall enough to read, short enough to see over. */
 const WALL_HEIGHT_METRES = 1.6;
 
-export const GROUND_MESH_NAME = 'region-ground';
+/**
+ * The arena rim is a low boundary, not a wall you hide behind.
+ *
+ * In the design it is a glowing strip marking the edge of the fighting floor.
+ * At full wall height it would enclose the arena like a room and hide the
+ * dressing beyond it; at knee height it reads as a boundary you can see over,
+ * which is what it is.
+ */
+const RIM_HEIGHT_METRES = 0.45;
 
-function flatMaterial(scene: Scene, name: string, colour: Color3): StandardMaterial {
-  const material = new StandardMaterial(name, scene);
-  material.diffuseColor = colour;
-  material.specularColor = Color3.Black();
-  return material;
-}
+export const GROUND_MESH_NAME = 'region-ground';
 
 /**
  * Builds the visible scenery for a region.
  *
- * The grid is the logical truth; everything here is decoration derived from it.
- * Nothing in the scene is authored by hand, so the picture cannot drift away
- * from what the simulation believes.
+ * The grid is the logical truth; everything here is decoration derived from it,
+ * so the picture cannot drift away from what the simulation believes. Every tile
+ * is drawn as its own one-metre quad or block and then **merged by surface**:
+ * one draw call per material rather than one per tile. A 32×22 arena is 704
+ * tiles, and 704 draw calls of static scenery is not a budget a phone should
+ * spend.
  */
-export function buildRegion(scene: Scene, region: Region): { readonly ground: Mesh } {
-  const size = regionSizeMetres(region);
-  const textures = createRegionTextures(scene, region);
+export function buildRegion(scene: Scene, region: Region): { readonly ground: Mesh | null } {
+  const materials = createRegionMaterials(scene);
 
-  const ground = MeshBuilder.CreateGround(
-    GROUND_MESH_NAME,
-    { width: size.width, height: size.depth },
-    scene,
-  );
-  // CreateGround is centred on its origin; the region starts at world (0, 0).
-  ground.position.x = size.width / 2;
-  ground.position.z = size.depth / 2;
-  // The colour lives in the texture now, so the material must not tint it.
-  const groundMaterial = flatMaterial(scene, 'region-ground-material', Color3.White());
-  groundMaterial.diffuseTexture = textures.floor;
-  ground.material = groundMaterial;
-
-  const wallMaterial = flatMaterial(scene, 'region-wall-material', Color3.White());
-  wallMaterial.diffuseTexture = textures.wall;
-
-  const platformMaterial = flatMaterial(scene, 'region-platform-material', Color3.White());
-  platformMaterial.diffuseTexture = textures.platform;
-
-  const walls: Mesh[] = [];
-  const platforms: Mesh[] = [];
+  // Collected per surface, merged once at the end.
+  const byTerrain = new Map<TerrainKind, Mesh[]>();
+  const collect = (terrain: TerrainKind, mesh: Mesh): void => {
+    const bucket = byTerrain.get(terrain);
+    if (bucket === undefined) {
+      byTerrain.set(terrain, [mesh]);
+    } else {
+      bucket.push(mesh);
+    }
+  };
 
   for (let row = 0; row < region.height; row += 1) {
     for (let col = 0; col < region.width; col += 1) {
@@ -66,32 +60,52 @@ export function buildRegion(scene: Scene, region: Region): { readonly ground: Me
       const centre = tileCentreToWorld(region, col, row);
 
       if (!tile.walkable) {
-        const wall = MeshBuilder.CreateBox(
-          `wall-${col}-${row}`,
-          { width: TILE_METRES, depth: TILE_METRES, height: WALL_HEIGHT_METRES },
+        const height = tile.terrain === 'rim' ? RIM_HEIGHT_METRES : WALL_HEIGHT_METRES;
+        const block = MeshBuilder.CreateBox(
+          `block-${col}-${row}`,
+          { width: TILE_METRES, depth: TILE_METRES, height },
           scene,
         );
-        wall.position.set(centre.x, WALL_HEIGHT_METRES / 2, centre.z);
-        walls.push(wall);
+        // Sits on whatever the tile's base height is, so the rim rides the
+        // raised arena floor rather than sinking into the ground beside it.
+        block.position.set(centre.x, tile.elevation + height / 2, centre.z);
+        collect(tile.terrain, block);
         continue;
       }
 
+      // A one-metre quad per walkable tile. Its UVs run 0–1, so a 64 px tile is
+      // exactly one metre of world without any scaling.
+      const floor = MeshBuilder.CreateGround(
+        `floor-${col}-${row}`,
+        { width: TILE_METRES, height: TILE_METRES },
+        scene,
+      );
+      floor.position.set(centre.x, tile.elevation, centre.z);
+      collect(tile.terrain, floor);
+
       if (tile.elevation > 0) {
-        const platform = MeshBuilder.CreateBox(
+        // The sides of a raised tile, so a platform has thickness.
+        const side = MeshBuilder.CreateBox(
           `platform-${col}-${row}`,
           { width: TILE_METRES, depth: TILE_METRES, height: tile.elevation },
           scene,
         );
-        platform.position.set(centre.x, tile.elevation / 2, centre.z);
-        platforms.push(platform);
+        side.position.set(centre.x, tile.elevation / 2, centre.z);
+        collect(tile.terrain, side);
       }
     }
   }
 
-  // Merge per-tile boxes into one mesh each: a 20x14 region is ~90 wall tiles,
-  // and 90 draw calls for static scenery is not a budget a phone should spend.
-  mergeInto(walls, 'region-walls', wallMaterial);
-  mergeInto(platforms, 'region-platforms', platformMaterial);
+  let ground: Mesh | null = null;
+  for (const [terrain, meshes] of byTerrain) {
+    const merged = mergeInto(meshes, `region-${terrain}`, materials.forTerrain(terrain));
+    // The largest walkable surface stands in as "the ground" for anything that
+    // wants a floor to refer to.
+    if (merged !== null && ground === null && terrain !== 'wall' && terrain !== 'rim') {
+      merged.name = GROUND_MESH_NAME;
+      ground = merged;
+    }
+  }
 
   buildSpawnMarker(scene, region, 'player-spawn', new Color3(0.4, 0.8, 0.45));
   buildSpawnMarker(scene, region, 'enemy-spawn', new Color3(0.85, 0.35, 0.35));
@@ -99,9 +113,9 @@ export function buildRegion(scene: Scene, region: Region): { readonly ground: Me
   return { ground };
 }
 
-function mergeInto(meshes: Mesh[], name: string, material: StandardMaterial): void {
+function mergeInto(meshes: Mesh[], name: string, material: StandardMaterial): Mesh | null {
   if (meshes.length === 0) {
-    return;
+    return null;
   }
 
   const merged = Mesh.MergeMeshes(meshes, true, true);
@@ -111,11 +125,12 @@ function mergeInto(meshes: Mesh[], name: string, material: StandardMaterial): vo
     for (const mesh of meshes) {
       mesh.material = material;
     }
-    return;
+    return null;
   }
 
   merged.name = name;
   merged.material = material;
+  return merged;
 }
 
 function buildSpawnMarker(
@@ -124,7 +139,9 @@ function buildSpawnMarker(
   type: 'player-spawn' | 'enemy-spawn',
   colour: Color3,
 ): void {
-  const material = flatMaterial(scene, `${type}-material`, colour);
+  const material = new StandardMaterial(`${type}-material`, scene);
+  material.diffuseColor = colour;
+  material.specularColor = Color3.Black();
 
   for (const object of region.objects.filter((candidate) => candidate.type === type)) {
     const tile = tileAt(region, object.tile.col, object.tile.row);
