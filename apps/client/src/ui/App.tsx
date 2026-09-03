@@ -1,6 +1,7 @@
 import type { EnemyState, Region } from '@adventure/game-core';
 import { useEffect, useRef, useState } from 'preact/hooks';
 
+import { rememberAssist } from '../config/assist';
 import { createTapSequence } from '../debug/tapSequence';
 import { toggleInPageConsole } from '../debug/inPageConsole';
 import type { GameAudio } from '../audio/audio';
@@ -332,6 +333,18 @@ export function App({ region, player, enemy, input, diagnostics, audio, assist }
           assist={assist}
           onToggleConsole={() => {
             void toggleInPageConsole();
+          }}
+          onToggleAssist={() => {
+            // Assist is baked into the player, the hammer and the meter when
+            // they are built, so flipping it means starting again. A reload is
+            // honest and instant; rebuilding half the scene live would be a lot
+            // of machinery for a setting changed twice per playtest.
+            rememberAssist(!assist);
+            const url = new URL(window.location.href);
+            // A URL parameter outranks the remembered choice, so it has to go
+            // or the button would appear to do nothing.
+            url.searchParams.delete('assist');
+            window.location.replace(url.toString());
           }}
         />
       ) : null}

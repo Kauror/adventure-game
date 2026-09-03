@@ -5,22 +5,29 @@ import type { ChargeLamp } from './chargeZone';
 import { chargeZone } from './chargeZone';
 
 /**
- * The hammer's charge indicator, as a traffic light.
+ * The hammer's charge indicator.
  *
- * It began as a track with the sweet spot drawn on it, which is the right idea
- * — PLAN §11 wants the timing *visible*, not a reaction test — and the wrong
- * shape. By the time it carried a GREAT band, a PERFECT band, a fill and a
- * travelling head, an adult on a phone described it as too many blocks, and a
- * five-year-old was never going to do better.
+ * Three shapes so far, each one a correction of the last.
  *
- * Three lamps say the same thing with a rule the players already know:
+ *  1. A track with the sweet spot drawn on it — right idea (PLAN §11 wants the
+ *     timing *visible*, not a reaction test), wrong shape. By the time it
+ *     carried a GREAT band, a PERFECT band, a fill and a travelling head, an
+ *     adult on a phone called it too many blocks.
+ *  2. Three traffic-light lamps — legible, but literal enough to read as
+ *     furniture rather than as part of the game.
+ *  3. This: **one bar that fills, and changes colour as it crosses the bands.**
  *
- *     red → not yet · amber → nearly · green → **hit it now**
+ * The traffic light survives as meaning rather than as pictures. The fill runs
+ * red → amber → green, and green *is* the PERFECT band; hold too long and it
+ * runs back down through amber to red, which is exactly what overcharging is.
+ * Releasing on red still lands the hit — red means "you get the ordinary one",
+ * never "you failed" (every release lands).
  *
- * Anticipation is preserved by warming the *next* lamp as the current one runs
- * out. Amber is only a fraction of a second wide, so it cannot be the only
- * warning that green is coming — you watch green brighten, which is a thing you
- * can plan around rather than react to.
+ * One element carries two facts at once, which is why it beats both earlier
+ * shapes: **how far along you are** (the fill, continuous, so the moment can be
+ * seen approaching) and **what you would get** (the colour). Anticipation comes
+ * from the glow ramping up through amber, so green never has to be caught cold
+ * in the fraction of a second amber lasts.
  *
  * Assist widens the bands, so an assisted player simply gets a longer green.
  * Nothing announces that the setting is on.
@@ -34,28 +41,23 @@ export interface ChargeMeter {
   readonly dispose: () => void;
 }
 
-/** How dim an inactive lamp sits. Visible, so the sequence can be anticipated. */
-const LAMP_OFF_OPACITY = 0.16;
-
-const ORDER: readonly ChargeLamp[] = ['red', 'amber', 'green'];
-
 export function createChargeMeter(container: HTMLElement, bands: TimingBands): ChargeMeter {
   const root = document.createElement('div');
   root.className = 'ui-charge';
   root.setAttribute('aria-hidden', 'true');
 
-  const lamps = new Map<ChargeLamp, HTMLElement>();
-  for (const lamp of ORDER) {
-    const element = document.createElement('div');
-    element.className = `ui-charge__lamp ui-charge__lamp--${lamp}`;
-    root.appendChild(element);
-    lamps.set(lamp, element);
-  }
+  const track = document.createElement('div');
+  track.className = 'ui-charge__track';
 
+  const fill = document.createElement('div');
+  fill.className = 'ui-charge__fill';
+  track.appendChild(fill);
+
+  root.appendChild(track);
   container.appendChild(root);
 
   let wasCharging = false;
-  let lastLit: ChargeLamp | null = null;
+  let lastLamp: ChargeLamp | null = null;
 
   return {
     update: (progress, charging) => {
@@ -63,40 +65,34 @@ export function createChargeMeter(container: HTMLElement, bands: TimingBands): C
         root.classList.toggle('ui-charge--active', charging);
         wasCharging = charging;
         if (!charging) {
-          // Leave it dark rather than frozen mid-sequence, so the next press
-          // always starts from red.
-          for (const element of lamps.values()) {
-            element.style.opacity = `${LAMP_OFF_OPACITY}`;
-          }
-          lastLit = null;
+          // Reset rather than freezing mid-sweep, so the next press starts red
+          // and empty.
+          fill.style.transform = 'scaleX(0)';
+          root.classList.remove('ui-charge--amber', 'ui-charge--green');
+          lastLamp = null;
         }
       }
       if (!charging) {
         return;
       }
 
-      const held = Math.min(1, Math.max(0, progress)) * HAMMER.chargeSeconds;
-      const zone = chargeZone(held, bands);
-      const nextLamp = ORDER[ORDER.indexOf(zone.lamp) + 1];
+      const clamped = Math.min(1, Math.max(0, progress));
+      fill.style.transform = `scaleX(${clamped})`;
 
-      for (const [lamp, element] of lamps) {
-        if (lamp === zone.lamp) {
-          element.style.opacity = '1';
-        } else if (lamp === nextLamp) {
-          // Warming up: this is the anticipation the bands used to carry.
-          element.style.opacity = `${LAMP_OFF_OPACITY + zone.progress * 0.5}`;
-        } else {
-          element.style.opacity = `${LAMP_OFF_OPACITY}`;
-        }
+      const zone = chargeZone(clamped * HAMMER.chargeSeconds, bands);
+
+      // Guarded: touching classList every frame would invalidate style for
+      // nothing 60 times a second.
+      if (zone.lamp !== lastLamp) {
+        root.classList.toggle('ui-charge--amber', zone.lamp === 'amber');
+        root.classList.toggle('ui-charge--green', zone.lamp === 'green');
+        lastLamp = zone.lamp;
       }
 
-      // Only the lit lamp glows, and only green pulses. Class changes are
-      // guarded because touching classList every frame invalidates style for
-      // nothing.
-      if (zone.lamp !== lastLit) {
-        root.classList.toggle('ui-charge--go', zone.lamp === 'green');
-        lastLit = zone.lamp;
-      }
+      // The approach. Amber lasts under two tenths of a second, so it cannot be
+      // the only warning that green is coming — the bar brightens through it.
+      const warmth = zone.lamp === 'amber' ? zone.progress : 0;
+      root.style.setProperty('--charge-warmth', `${warmth}`);
     },
     dispose: () => {
       root.remove();

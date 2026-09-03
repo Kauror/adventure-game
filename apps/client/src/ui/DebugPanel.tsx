@@ -32,6 +32,7 @@ export interface DebugPanelProps {
   readonly audio: GameAudio;
   readonly assist: boolean;
   readonly onToggleConsole: () => void;
+  readonly onToggleAssist: () => void;
 }
 
 /**
@@ -52,6 +53,7 @@ export function DebugPanel({
   audio,
   assist,
   onToggleConsole,
+  onToggleAssist,
 }: DebugPanelProps) {
   const { device } = diagnostics;
   const sound = audio.diagnostics();
@@ -132,6 +134,16 @@ export function DebugPanel({
         <div>dpr {device.devicePixelRatio}×</div>
         <div class="ui-readout__probe">{device.platform}</div>
       </div>
+
+      {/*
+        The only way to change assist on the phone. The home-screen install has
+        no URL bar, so `?assist=1` is unreachable there — and that install is
+        how the children actually open the game. Behind the hidden gesture, so
+        no child is ever told which setting they are on.
+      */}
+      <button type="button" class="ui-readout__button" onClick={onToggleAssist}>
+        {`${t('debug.assistToggle')} → ${assist ? t('debug.no') : t('debug.yes')}`}
+      </button>
 
       <button type="button" class="ui-readout__button" onClick={onToggleConsole}>
         {t('debug.console')}

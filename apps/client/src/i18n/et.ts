@@ -45,6 +45,7 @@ export const et = {
   // Which build this phone actually loaded. See config/buildInfo.ts.
   'debug.build': 'Versioon',
   'debug.audio': 'Heli',
+  'debug.assistToggle': 'Lülita abi',
 
   'action.dodge': 'Põige',
   'action.attack': 'Löök',

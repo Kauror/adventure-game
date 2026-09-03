@@ -266,26 +266,22 @@ body {
 }
 
 /*
- * Charge meter, as a traffic light.
+ * Charge meter: one bar that fills, and changes colour as it crosses the bands.
  *
- * Replaced a track carrying two bands, a fill and a travelling head — five
- * overlapping things that read as "too many blocks" on a phone. Three lamps
- * carry the same information with a rule the players already know before they
- * can read: red, amber, **green means hit it**.
+ * Keeps the traffic light's *meaning* — red not yet, amber nearly, green now —
+ * without three literal lamps sitting on the screen. One element carries both
+ * how far along you are and what you would get for releasing.
  *
  * Sits above the action buttons and below the character, so the eyes barely
  * leave the fight.
  */
 .ui-charge {
+  --charge-warmth: 0;
+
   position: absolute;
   bottom: calc(var(--ui-safe-bottom) + 104px);
   left: 50%;
-  display: flex;
-  gap: 14px;
-  padding: 10px 14px;
-  border: 2px solid rgb(255 255 255 / 22%);
-  border-radius: 34px;
-  background: rgb(0 0 0 / 55%);
+  width: min(300px, 54vw);
   opacity: 0;
   transform: translateX(-50%);
   transition: opacity 120ms ease-out;
@@ -295,46 +291,58 @@ body {
   opacity: 1;
 }
 
-.ui-charge__lamp {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  /* Opacity is written per frame by the meter; only the colour lives here. */
-  opacity: 0.16;
+.ui-charge__track {
+  overflow: hidden;
+  height: 22px;
+  border: 2px solid rgb(255 255 255 / 30%);
+  border-radius: 11px;
+  background: rgb(0 0 0 / 55%);
   transition: box-shadow 90ms ease-out;
 }
 
-.ui-charge__lamp--red {
+.ui-charge__fill {
+  width: 100%;
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  border-radius: 9px;
   background: rgb(235 60 60);
-}
-
-.ui-charge__lamp--amber {
-  background: rgb(255 176 40);
-}
-
-.ui-charge__lamp--green {
-  background: rgb(70 230 110);
+  transition: background-color 110ms ease-out;
+  will-change: transform;
 }
 
 /*
- * Green gets a halo and a pulse, and nothing else does. The moment to release
- * has to be catchable in peripheral vision while the child is watching the
- * enemy rather than the lights.
+ * Amber warms as it runs, so green is never caught cold in the fraction of a
+ * second amber lasts. `--charge-warmth` is written per frame by the meter.
  */
-.ui-charge--go .ui-charge__lamp--green {
+.ui-charge--amber .ui-charge__fill {
+  background: rgb(255 176 40);
+}
+
+.ui-charge--amber .ui-charge__track {
+  box-shadow: 0 0 calc(var(--charge-warmth) * 16px) rgb(255 176 40 / 70%);
+}
+
+/* Green is the only state that glows and pulses: it is the one that means act. */
+.ui-charge--green .ui-charge__fill {
+  background: rgb(70 230 110);
+}
+
+.ui-charge--green .ui-charge__track {
+  border-color: rgb(150 255 180 / 90%);
   box-shadow:
-    0 0 0 4px rgb(70 230 110 / 45%),
-    0 0 18px 6px rgb(70 230 110 / 55%);
-  animation: ui-charge-go 320ms ease-in-out infinite alternate;
+    0 0 0 3px rgb(70 230 110 / 40%),
+    0 0 20px 4px rgb(70 230 110 / 55%);
+  animation: ui-charge-go 300ms ease-in-out infinite alternate;
 }
 
 @keyframes ui-charge-go {
   from {
-    transform: scale(1);
+    transform: scaleY(1);
   }
 
   to {
-    transform: scale(1.12);
+    transform: scaleY(1.16);
   }
 }
 

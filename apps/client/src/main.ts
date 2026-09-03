@@ -14,7 +14,7 @@ import type { AttackSwing } from '@adventure/game-core';
 
 import { createAudio } from './audio/audio';
 import type { SwingSound } from './audio/audio';
-import { assistFromLocation } from './config/assist';
+import { resolveAssist } from './config/assist';
 import { buildLabel } from './config/buildInfo';
 import { createGameCamera } from './game/camera';
 import { createEnemyActor } from './game/enemy';
@@ -91,7 +91,7 @@ function start(): () => void {
   const { engine, dispose: disposeEngine } = createEngine(canvas);
   const scene = createScene(engine, region);
 
-  const assist = assistFromLocation();
+  const assist = resolveAssist();
 
   const spawnAt = spawnPoint(region, 'player-spawn') ?? tileCentreToWorld(region, 0, 0);
   const player = createPlayer(scene, region, spawnAt, assist);
