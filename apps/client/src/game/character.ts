@@ -5,8 +5,6 @@ import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { Scene } from '@babylonjs/core/scene';
 
-import '@babylonjs/loaders/glTF/2.0';
-
 import type { CharacterClip } from './characterClips';
 import { CLIP_NAMES, isLooping } from './characterClips';
 
@@ -106,11 +104,32 @@ export interface CharacterOptions {
  * characters from the same file never share animation groups — the enemy
  * playing `die` must not stop the player walking.
  */
+/**
+ * Registers the glTF loader, once, on first use.
+ *
+ * Imported dynamically so the loader — a large chunk the HUD does not need — is
+ * fetched when a character is first loaded rather than on first paint, and so
+ * its registration is ordered after module evaluation by construction.
+ *
+ * It is *not* what fixed the blank production screen; that was a temporal dead
+ * zone of my own making in `main.ts`. Recorded because a comment that claims to
+ * fix a bug it did not fix is worse than no comment: the next person leaves it
+ * alone for the wrong reason.
+ */
+let loaderReady: Promise<void> | null = null;
+
+function registerGltfLoader(): Promise<void> {
+  loaderReady ??= import('@babylonjs/loaders/glTF/2.0').then(() => undefined);
+  return loaderReady;
+}
+
 export async function loadCharacter(
   scene: Scene,
   url: string,
   { heightMetres }: CharacterOptions,
 ): Promise<Character> {
+  // Awaited before the load, so registration is ordered by construction.
+  await registerGltfLoader();
   const container = await LoadAssetContainerAsync(url, scene);
   // Clones rather than instances: each character animates its own six body
   // parts, and two characters from the same file must not share transforms.

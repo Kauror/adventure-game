@@ -130,6 +130,15 @@ async function start(): Promise<() => void> {
   const chargeMeter = createChargeMeter(joystickLayer, timingBands(assist));
 
   // Feel: the difference between a correct combat loop and one worth replaying.
+  // Declared before the diagnostics that read it, and before the UI mounts.
+  // As a `const` further down it was in its temporal dead zone when the first
+  // render called `live()`, which threw `Cannot access 'D' before
+  // initialization` in the production build and showed a blank screen.
+  //
+  // Capped rather than free-running: sixty frames of a fixed-camera scene with
+  // six-box characters buys little on a phone and costs battery and heat.
+  // `?fps=60` restores the uncapped behaviour for a side-by-side.
+  const frames = createFrameGate(frameCapFromLocation());
   const diagnostics = createDiagnostics(engine, () => frames.targetFps);
   const audio = createAudio();
   const hitStop = createHitStop();
@@ -283,12 +292,6 @@ async function start(): Promise<() => void> {
     assist,
   });
 
-  // Capped rather than free-running. Sixty frames of a fixed-camera scene with
-  // six-box characters buys little on a phone and costs battery and heat, and
-  // heat is what turns a good half-hour session into a bad one. `?fps=60`
-  // restores the uncapped behaviour for a side-by-side.
-  const frames = createFrameGate(frameCapFromLocation());
-
   engine.runRenderLoop(() => {
     if (frames.shouldRender(performance.now())) {
       scene.render();
@@ -314,6 +317,49 @@ async function start(): Promise<() => void> {
 }
 
 /**
+ * Puts a boot failure on the screen.
+ *
+ * Written in plain DOM on purpose: if `start()` threw, the Preact overlay never
+ * mounted, so the HUD, the rotate notice and the corner that opens the in-page
+ * console are all absent — and what a person sees is an empty grey rectangle
+ * that looks identical whether the game crashed, the network failed, or the
+ * phone is simply slow. That happened, and it cost two rounds of guessing at
+ * the wrong cause.
+ *
+ * Deliberately ugly and unlocalised. It is not part of the game; nobody should
+ * ever see it, and if they do the message matters more than the manners.
+ */
+function showStartupFailure(error: unknown): void {
+  const panel = document.createElement('div');
+  panel.setAttribute('role', 'alert');
+  panel.style.cssText = [
+    'position:fixed',
+    'inset:0',
+    'z-index:9999',
+    'padding:16px',
+    'overflow:auto',
+    'background:#140d0d',
+    'color:#ffd9d9',
+    'font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace',
+    '-webkit-user-select:text',
+    'user-select:text',
+  ].join(';');
+
+  const detail =
+    error instanceof Error
+      ? `${error.message}
+
+${error.stack ?? ''}`
+      : String(error);
+  panel.textContent = `Mäng ei käivitunud.
+
+build ${buildLabel()}
+
+${detail}`;
+  document.body.appendChild(panel);
+}
+
+/**
  * Boot, and keep hold of the teardown for hot reloads.
  *
  * A promise now, because the characters have to load first. The failure path
@@ -330,6 +376,7 @@ void start()
   })
   .catch((error: unknown) => {
     console.error('adventure failed to start', error);
+    showStartupFailure(error);
   });
 
 if (import.meta.hot) {
