@@ -266,27 +266,28 @@ body {
 }
 
 /*
- * Charge meter.
+ * Charge meter, as a traffic light.
  *
- * Moved to the bottom centre after the first adult playtest, which could not
- * read it: it used to sit in the bottom-right corner directly under the hand
- * that was charging, at 14 px tall. It is now large, in the middle, above both
- * thumbs, and the bands differ in height as well as colour so a child who
- * cannot yet distinguish the colours still sees the target.
+ * Replaced a track carrying two bands, a fill and a travelling head — five
+ * overlapping things that read as "too many blocks" on a phone. Three lamps
+ * carry the same information with a rule the players already know before they
+ * can read: red, amber, **green means hit it**.
+ *
+ * Sits above the action buttons and below the character, so the eyes barely
+ * leave the fight.
  */
 .ui-charge {
   position: absolute;
-  /*
-   * Above the action buttons rather than beside them. On a 667 px-wide
-   * landscape phone a centred 340 px meter would clip the attack button;
-   * clearing them vertically keeps it central and large on every screen
-   * instead of shrinking it to fit the smallest one.
-   */
   bottom: calc(var(--ui-safe-bottom) + 104px);
   left: 50%;
-  width: min(360px, 62vw);
-  transform: translateX(-50%);
+  display: flex;
+  gap: 14px;
+  padding: 10px 14px;
+  border: 2px solid rgb(255 255 255 / 22%);
+  border-radius: 34px;
+  background: rgb(0 0 0 / 55%);
   opacity: 0;
+  transform: translateX(-50%);
   transition: opacity 120ms ease-out;
 }
 
@@ -294,71 +295,47 @@ body {
   opacity: 1;
 }
 
-.ui-charge__track {
-  position: relative;
-  height: 26px;
-  overflow: hidden;
-  border: 2px solid rgb(255 255 255 / 40%);
-  border-radius: 13px;
-  background: rgb(0 0 0 / 55%);
+.ui-charge__lamp {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  /* Opacity is written per frame by the meter; only the colour lives here. */
+  opacity: 0.16;
   transition: box-shadow 90ms ease-out;
 }
 
-/* The whole meter reacts, so the moment is catchable in peripheral vision. */
-.ui-charge--in-great .ui-charge__track {
-  box-shadow: 0 0 0 2px rgb(255 184 60 / 60%);
+.ui-charge__lamp--red {
+  background: rgb(235 60 60);
 }
 
-.ui-charge--in-perfect .ui-charge__track {
-  box-shadow: 0 0 0 5px rgb(255 250 210 / 90%);
+.ui-charge__lamp--amber {
+  background: rgb(255 176 40);
 }
 
-/* The sweet spot is visible on the track, never hidden. */
-.ui-charge__band {
-  position: absolute;
-  top: 0;
-  height: 100%;
-}
-
-.ui-charge__band--great {
-  background: rgb(255 184 60 / 28%);
-}
-
-.ui-charge__band--perfect {
-  /* Taller than the track: shape carries the distinction, not colour alone. */
-  top: -5px;
-  height: calc(100% + 10px);
-  background: rgb(255 246 195 / 85%);
-}
-
-.ui-charge__fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  transform: scaleX(0);
-  transform-origin: left center;
-  background: rgb(120 220 255 / 45%);
-  will-change: transform;
+.ui-charge__lamp--green {
+  background: rgb(70 230 110);
 }
 
 /*
- * The travelling head of the fill.
- *
- * Full width with only a left border drawn, so a percentage translate moves it
- * by that fraction of the *track* — the head is what the player is actually
- * timing, and a filling bar alone never communicated that.
+ * Green gets a halo and a pulse, and nothing else does. The moment to release
+ * has to be catchable in peripheral vision while the child is watching the
+ * enemy rather than the lights.
  */
-.ui-charge__head {
-  position: absolute;
-  top: -4px;
-  left: 0;
-  width: 100%;
-  height: calc(100% + 8px);
-  border-left: 5px solid rgb(255 255 255 / 95%);
-  pointer-events: none;
-  will-change: transform;
+.ui-charge--go .ui-charge__lamp--green {
+  box-shadow:
+    0 0 0 4px rgb(70 230 110 / 45%),
+    0 0 18px 6px rgb(70 230 110 / 55%);
+  animation: ui-charge-go 320ms ease-in-out infinite alternate;
+}
+
+@keyframes ui-charge-go {
+  from {
+    transform: scale(1);
+  }
+
+  to {
+    transform: scale(1.12);
+  }
 }
 
 .ui-action--attack {
