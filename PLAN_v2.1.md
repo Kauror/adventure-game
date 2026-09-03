@@ -66,7 +66,7 @@ Revised 2026-08-28. v2.1 added the final pre-build locks for Stage 0A: camera, f
 9. **An in-page console (eruda/vConsole) ships from the first build** — iOS Safari cannot be inspected from a Windows machine, so without it an iPhone bug has no diagnostics at all. (§25)
 10. **Stage 2 carries no loot loss.** Wipe fails the adventure and costs nothing; the recovery cache, three attempts, courier floor and checkpoint banking move to **Stage 3**, where loot actually matters. (§13, §30)
 11. **Every gate has an iteration budget** (max two ITERATEs of ≤2 weekends), plus a stall rule and a written pre-commitment about what would end the project. (§28, §30)
-12. **Timing bands are specified as widths, not points**: ~1.2 s total charge, PERFECT 250–300 ms wide at ~75 % of the charge, GREAT the ~500 ms around it, GOOD everything else. (§11)
+12. **Timing bands are specified as widths, not points**: PERFECT at least 250–300 ms wide, GREAT the band around it, GOOD everything else. (§11) *Revised 2026-09-03 after the first adult playtest: the total charge is now ~1.5 s and the bands are correspondingly wider. The direction is one-way — the charge may be lengthened for readability and never shortened, because a mechanic nobody can see is not a difficulty setting.*
 
 ---
 
@@ -233,10 +233,10 @@ Input target for the full game: LEFT THUMB movement (virtual joystick), RIGHT TH
 **Stage 0A input is intentionally smaller:** LEFT THUMB = movement; RIGHT THUMB = **ATTACK + DODGE only**. No ability button and no interact button are required for the combat-feel proof. The first weapon is a **hammer**:
 
 - **One button, two modes — speed or strength.** Tapping is fast and safe; holding is slow and powerful, and the player chooses which risk to take. The same split is intended to carry to other weapon families (a bow taps for a quick shot and holds for a drawn one).
-- **Tap** (release under ~180 ms) → a quick light hit that **chains**: tap again in rhythm and the chain continues to a stronger finisher, while letting the rhythm lapse resets it. Light hits recover fast so taps flow, and are individually weaker than any heavy swing — taps buy speed and safety, not power.
-- **Hold** → a clearly telegraphed charge meter fills over **~0.85 s** (tuned in 0A, but a single named number, not a vague "charge"), carrying **three concentric bands**, all measured as *widths* in milliseconds rather than points in time:
-  - **PERFECT** — a band **250–300 ms wide**, centred around 60 % of the charge;
-  - **GREAT** — the ~450 ms band surrounding PERFECT;
+- **Tap** (release under ~220 ms — raised from 180 ms after the first adult playtest, where deliberate taps were being swallowed by the charge) → a quick light hit that **chains**: tap again in rhythm and the chain continues to a stronger finisher, while letting the rhythm lapse resets it. Light hits recover fast so taps flow, and are individually weaker than any heavy swing — taps buy speed and safety, not power.
+- **Hold** → a clearly telegraphed charge meter fills over **~1.5 s** (tuned in 0A, but a single named number, not a vague "charge"), carrying **three concentric bands**, all measured as *widths* in milliseconds rather than points in time:
+  - **PERFECT** — a band **at least 250–300 ms wide** (currently 340 ms), centred around 60 % of the charge;
+  - **GREAT** — the band surrounding PERFECT (currently ~700 ms);
   - **GOOD** — everything else: released too early, or **overcharged** past the window.
 - Release in GOOD → normal hit; GREAT → stronger hit + small stagger; PERFECT → strongest allowed bonus + satisfying impact/VFX. A heavy swing always outhits the light chain, and pays for it with a longer recovery.
 - Missing the mastery bands never jams or cancels the attack — **every release attacks**.
