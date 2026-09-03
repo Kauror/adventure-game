@@ -81,3 +81,55 @@ describe('choosing the cap', () => {
     expect(frameCapFromLocation('?fps=-5')).toBe(0);
   });
 });
+
+describe('the rate it reports is the rate it draws', () => {
+  /** Runs frames at `displayHz` and returns the gate afterwards. */
+  function run(fps: number, displayHz: number, seconds = 3) {
+    const gate = createFrameGate(fps);
+    const step = 1000 / displayHz;
+    for (let i = 0; i < seconds * displayHz; i += 1) {
+      gate.shouldRender(i * step);
+    }
+    return gate;
+  }
+
+  it('reports 30, not 60, when capping a 60 Hz display', () => {
+    // Babylon's own counter reports 60 here, because it counts animation frames
+    // rather than frames drawn. That reading cannot fall below the display rate,
+    // so it can never distinguish a capped 30 from a struggling 30 — which is
+    // the only reason the number is on screen.
+    expect(Math.round(run(30, 60).renderedFps())).toBe(30);
+  });
+
+  it('reports 30 when capping a 120 Hz display', () => {
+    expect(Math.round(run(30, 120).renderedFps())).toBe(30);
+  });
+
+  it('reports the truth when the display cannot keep up', () => {
+    // A 30 fps target on a 20 Hz display is a struggling 20, and must read as
+    // 20 rather than as the target.
+    expect(Math.round(run(30, 20).renderedFps())).toBe(20);
+  });
+
+  it('reports the display rate when uncapped', () => {
+    expect(Math.round(run(0, 60).renderedFps())).toBe(60);
+  });
+
+  it('reports nothing before a second frame has been seen', () => {
+    const gate = createFrameGate(30);
+    gate.shouldRender(0);
+    expect(gate.renderedFps()).toBe(0);
+  });
+
+  it('does not count a stall as a frame rate', () => {
+    const gate = createFrameGate(0);
+    for (let i = 0; i < 120; i += 1) {
+      gate.shouldRender(i * (1000 / 60));
+    }
+    const before = gate.renderedFps();
+
+    // The phone slept for ten seconds. That is not a 0.1 fps reading.
+    gate.shouldRender(12_000);
+    expect(gate.renderedFps()).toBeCloseTo(before, 1);
+  });
+});

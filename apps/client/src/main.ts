@@ -80,6 +80,21 @@ function requestedJoystickOrigin(): JoystickOrigin {
 const HERO_MODEL = '/models/hero.glb';
 const FOE_MODEL = '/models/foe.glb';
 
+/**
+ * The device-baseline measurement scene, when asked for (roadmap 0A.12).
+ *
+ * Imported dynamically and gated behind a query parameter, so nothing about it —
+ * including the shadow machinery the game does not otherwise use — reaches the
+ * bundle a child downloads. It is a synthetic scene that produces numbers and is
+ * never shown to a player.
+ */
+async function startStress(): Promise<() => void> {
+  const canvas = requireElement<HTMLCanvasElement>('#game-canvas');
+  const overlay = requireElement<HTMLElement>('#ui-root');
+  const { runStressScene, stressOptionsFromLocation } = await import('./stress/stressScene');
+  return runStressScene(canvas, overlay, stressOptionsFromLocation());
+}
+
 async function start(): Promise<() => void> {
   document.title = t('app.title');
 
@@ -139,7 +154,7 @@ async function start(): Promise<() => void> {
   // six-box characters buys little on a phone and costs battery and heat.
   // `?fps=60` restores the uncapped behaviour for a side-by-side.
   const frames = createFrameGate(frameCapFromLocation());
-  const diagnostics = createDiagnostics(engine, () => frames.targetFps);
+  const diagnostics = createDiagnostics(engine, frames);
   const audio = createAudio();
   const hitStop = createHitStop();
   const impacts = createImpactBurst(scene);
@@ -370,7 +385,9 @@ ${detail}`;
  */
 let teardown: (() => void) | null = null;
 
-void start()
+const measuring = new URLSearchParams(window.location.search).has('stress');
+
+void (measuring ? startStress() : start())
   .then((dispose) => {
     teardown = dispose;
   })

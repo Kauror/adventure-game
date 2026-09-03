@@ -58,6 +58,48 @@ export interface FrameGate {
   readonly shouldRender: (nowMs: number) => boolean;
   /** Frames per second being aimed for; 0 when uncapped. */
   readonly targetFps: number;
+  /**
+   * Frames per second actually drawn.
+   *
+   * Measured here rather than taken from `engine.getFps()`, which counts
+   * animation frames: Babylon opens and closes a frame on every
+   * `requestAnimationFrame` tick whether or not the callback renders anything,
+   * so with a 30 fps cap on a 60 Hz screen it cheerfully reports 60. The whole
+   * value of this number is telling a capped 30 from a struggling 30, and a
+   * reading that cannot drop below the display rate cannot do that.
+   */
+  readonly renderedFps: () => number;
+}
+
+/**
+ * Smoothing for the rendered-rate estimate.
+ *
+ * Slow enough to be readable on a phone rather than flickering, fast enough to
+ * show a stall within a second or so.
+ */
+const RATE_SMOOTHING = 0.12;
+
+/** Gaps longer than this are a stall, not a frame rate, and are not averaged in. */
+const STALL_MS = 500;
+
+/** Tracks how often frames are actually drawn. */
+function createRateMeter() {
+  let lastMs = Number.NaN;
+  let smoothedMs = 0;
+
+  return {
+    record: (nowMs: number): void => {
+      const delta = nowMs - lastMs;
+      lastMs = nowMs;
+
+      // A phone waking, or a tab returning, is not a frame rate.
+      if (!Number.isFinite(delta) || delta <= 0 || delta > STALL_MS) {
+        return;
+      }
+      smoothedMs = smoothedMs === 0 ? delta : smoothedMs + (delta - smoothedMs) * RATE_SMOOTHING;
+    },
+    fps: (): number => (smoothedMs > 0 ? 1000 / smoothedMs : 0),
+  };
 }
 
 /**
@@ -68,8 +110,17 @@ export interface FrameGate {
  * 30 fps cap into 28.
  */
 export function createFrameGate(fps: number): FrameGate {
+  const rate = createRateMeter();
+
   if (fps <= 0) {
-    return { shouldRender: () => true, targetFps: 0 };
+    return {
+      targetFps: 0,
+      renderedFps: rate.fps,
+      shouldRender: (nowMs) => {
+        rate.record(nowMs);
+        return true;
+      },
+    };
   }
 
   const interval = 1000 / fps;
@@ -79,6 +130,7 @@ export function createFrameGate(fps: number): FrameGate {
 
   return {
     targetFps: fps,
+    renderedFps: rate.fps,
     shouldRender: (nowMs) => {
       if (nowMs + slack < due) {
         return false;
@@ -87,6 +139,7 @@ export function createFrameGate(fps: number): FrameGate {
       // A long stall — a phone waking, a tab returning — must not leave the
       // gate owing a burst of frames it will never catch up on.
       due = nowMs - due > interval * 4 ? nowMs + interval : due + interval;
+      rate.record(nowMs);
       return true;
     },
   };

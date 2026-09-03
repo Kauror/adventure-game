@@ -49,7 +49,10 @@ function shorten(value: string, max = 42): string {
   return cleaned.length > max ? `${cleaned.slice(0, max - 1)}…` : cleaned;
 }
 
-export function createDiagnostics(engine: Engine, targetFps: () => number): Diagnostics {
+export function createDiagnostics(
+  engine: Engine,
+  frames: { readonly targetFps: number; readonly renderedFps: () => number },
+): Diagnostics {
   let renderer = 'unknown';
   try {
     const info = engine.getGlInfo();
@@ -70,8 +73,9 @@ export function createDiagnostics(engine: Engine, targetFps: () => number): Diag
   return {
     device,
     live: () => ({
-      fps: Math.round(engine.getFps()),
-      targetFps: targetFps(),
+      // Frames actually drawn, not animation frames offered — see frameCap.ts.
+      fps: Math.round(frames.renderedFps()),
+      targetFps: frames.targetFps,
       frameMs: Math.round(engine.getDeltaTime() * 10) / 10,
       // The zoom factor is here because a zoomed page is indistinguishable
       // from a broken layout by eye, and the two need opposite fixes.
