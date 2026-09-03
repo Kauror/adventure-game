@@ -9,6 +9,8 @@ import type { Scene } from '@babylonjs/core/scene';
 import '@babylonjs/core/Meshes/Builders/groundBuilder';
 import '@babylonjs/core/Meshes/Builders/boxBuilder';
 
+import { createRegionTextures } from './regionTextures';
+
 /** Height of a wall block, in metres. Tall enough to read, short enough to see over. */
 const WALL_HEIGHT_METRES = 1.6;
 
@@ -30,6 +32,7 @@ function flatMaterial(scene: Scene, name: string, colour: Color3): StandardMater
  */
 export function buildRegion(scene: Scene, region: Region): { readonly ground: Mesh } {
   const size = regionSizeMetres(region);
+  const textures = createRegionTextures(scene, region);
 
   const ground = MeshBuilder.CreateGround(
     GROUND_MESH_NAME,
@@ -39,14 +42,16 @@ export function buildRegion(scene: Scene, region: Region): { readonly ground: Me
   // CreateGround is centred on its origin; the region starts at world (0, 0).
   ground.position.x = size.width / 2;
   ground.position.z = size.depth / 2;
-  ground.material = flatMaterial(scene, 'region-ground-material', new Color3(0.19, 0.23, 0.21));
+  // The colour lives in the texture now, so the material must not tint it.
+  const groundMaterial = flatMaterial(scene, 'region-ground-material', Color3.White());
+  groundMaterial.diffuseTexture = textures.floor;
+  ground.material = groundMaterial;
 
-  const wallMaterial = flatMaterial(scene, 'region-wall-material', new Color3(0.3, 0.33, 0.4));
-  const platformMaterial = flatMaterial(
-    scene,
-    'region-platform-material',
-    new Color3(0.36, 0.45, 0.38),
-  );
+  const wallMaterial = flatMaterial(scene, 'region-wall-material', Color3.White());
+  wallMaterial.diffuseTexture = textures.wall;
+
+  const platformMaterial = flatMaterial(scene, 'region-platform-material', Color3.White());
+  platformMaterial.diffuseTexture = textures.platform;
 
   const walls: Mesh[] = [];
   const platforms: Mesh[] = [];

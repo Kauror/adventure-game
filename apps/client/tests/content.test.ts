@@ -22,9 +22,11 @@ const region = parseRegion(regions[TEST_ARENA_ID]);
 describe('test arena content', () => {
   it('parses the shipped region', () => {
     expect(region.id).toBe('test-arena');
-    expect(region.width).toBe(20);
-    expect(region.height).toBe(14);
-    expect(regionSizeMetres(region)).toEqual({ width: 20, depth: 14 });
+    // Enlarged from 20x14 so there is room to retreat, circle and use cover —
+    // the old arena was small enough that backing away hit a wall.
+    expect(region.width).toBe(32);
+    expect(region.height).toBe(22);
+    expect(regionSizeMetres(region)).toEqual({ width: 32, depth: 22 });
   });
 
   it('is not square, so a width/height transposition would be caught', () => {

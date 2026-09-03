@@ -297,6 +297,16 @@ async function start(): Promise<() => void> {
     chargingLastFrame = snapshot.charging;
   });
 
+  if (new URLSearchParams(window.location.search).has('debug')) {
+    // A handle on the scene, behind the same flag as the readout.
+    //
+    // Not a leftover: this project cannot reliably see its own output — the
+    // automation pane stops compositing, and the target device cannot be
+    // inspected from a Windows machine at all. Twice now, "why is this not
+    // drawing" has been answerable in one query and unanswerable by looking.
+    (window as unknown as { __scene?: unknown }).__scene = scene;
+  }
+
   const unmountUi = mountUi(uiRoot, {
     region,
     player,
