@@ -1074,3 +1074,53 @@ The mute-switch question above; whether the closer camera is close enough;
 whether the tap threshold at 0.22 s suits a five-year-old's press; and every
 feel judgement in this entry, all of which are now answerable on a phone rather
 than by argument.
+
+## 2026-09-03 — Phone follow-up: browser zoom, and losing the URL bar
+
+Two things reported straight off the phone after the readability build went out.
+
+### A mistap zoomed the page, and there was no way back
+
+The viewport meta tag looked like it handled this and did not. **iOS Safari has
+ignored `user-scalable=no` and `maximum-scale` since iOS 10**, so that line is
+decoration on iOS — worth knowing before trusting it again. What actually
+governs zoom is two separate mechanisms:
+
+- **double-tap** is `touch-action`, which is **not an inherited property**. It
+  was set on the canvas and the two action buttons, so a tap landing anywhere
+  else — the debug corner, a heart, the overlay — got the browser default. Now
+  set across the whole `#app` subtree.
+- **pinch** is only preventable through Safari's non-standard `gesturestart` /
+  `gesturechange` / `gestureend`, which `input/preventZoom.ts` cancels.
+
+The trap afterwards was the fixed layout: with nothing scrollable there was
+nothing to pinch back out with, so the only escape was rotating the phone twice.
+
+**Not done, deliberately:** cancelling multi-touch `touchmove`, which is the
+usual advice. Steering with one thumb while attacking with the other _is_ a
+two-finger gesture, and cancelling those touches takes the pointer events with
+them — it would trade a zoom bug for an unplayable game.
+
+The guard is scoped to `#app` so the in-page console, which attaches to `body`,
+stays pinchable and scrollable. On a phone that is sometimes the only way to
+read it. The debug readout also gained a `max-height` and its own scrolling: it
+had quietly grown taller than a phone held sideways.
+
+### The URL bar
+
+It cannot be removed from inside Safari — there is no API, and the fullscreen
+API does not apply to arbitrary elements on iPhone. **Add to Home Screen** is the
+only route, and the meta tags for it were already present. What was missing was
+any reason to use it: an install took a screenshot of a dark canvas as its icon.
+
+There is now a generated 180 px hammer icon and a short home-screen name. This
+matters more than it looks for Kid Test 0: the second sitting asks whether they
+come back _unprompted_, and an icon on a home screen is something a child can
+find on their own. A URL is not.
+
+Deployed `70db8a146a9f`. **254 tests** (165 game-core + 89 client).
+
+One observation from verifying it: Cloudflare rewrites the icon's
+`Cache-Control` to its own 4-hour browser TTL. `index.html` is unaffected and
+still revalidates, which is the one that matters — checked directly rather than
+assumed.
