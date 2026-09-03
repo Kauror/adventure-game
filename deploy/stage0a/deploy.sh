@@ -38,9 +38,14 @@ docker build \
   --build-arg "BUILD_TIME=${BUILD_TIME}" \
   .
 
+# Exported rather than prefixed onto one command: every `docker compose` call
+# below interpolates the compose file, and the `ps` at the end failed on the
+# first real deploy because it could not see the variable.
+export ADVENTURE_IMAGE="${IMAGE}"
+
 # `up -d` recreates only this service. It touches nothing else on the host:
 # no other container, no global Docker state, no unrelated network.
-ADVENTURE_IMAGE="${IMAGE}" docker compose --file "${COMPOSE}" up -d
+docker compose --file "${COMPOSE}" up -d
 
 echo
 echo "deployed ${IMAGE}"
