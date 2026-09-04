@@ -1850,3 +1850,46 @@ asserts the relationship now — a body folds the same way its hammer swings.
 ### Cost
 
 **345 tests.**
+
+## 0A.24 — the enemy respawned alive and face-down
+
+"Enemy is laying down… now this enemy has a life bar, and it's alive and
+kicking, it happens after killing the last enemy."
+
+That second sentence is the whole diagnosis. The state machine was never wrong:
+the enemy died, waited its three seconds, respawned at full health and went back
+to chasing the player. It simply did it lying on its face.
+
+### One-shot clips outlive themselves
+
+`die` and `attack` are one-shots that hold their final frame **on purpose** — a
+swing should end on the follow-through and a death should stay down. But `die`
+moves joints that `idle` does not animate at all, and starting `idle` therefore
+left every one of them exactly where the death had put them.
+
+Measured in the browser rather than argued about:
+
+|                                | head above legs |
+| ------------------------------ | --------------- |
+| standing                       | 0.94 m          |
+| after `die`                    | 0.11 m          |
+| after switching back to `idle` | **0.11 m**      |
+
+Stopping a group does not undo it. `reset()` does — and, worth knowing, it still
+works _after_ `stop()`, which is not obvious. The intuitive alternative of
+seeking back to the clip's first frame restores nothing at all; that was tried
+and measured too.
+
+### The shape of the fix
+
+The switch is now `switchClip(outgoing, incoming, looping)`, exported and unit
+tested against fake groups, asserting the one thing that matters: **the outgoing
+clip is reset, and reset after it is stopped.** It was three lines inline in a
+closure before, where nothing could reach it.
+
+The same bug was waiting for the player: die, revive, and walk around flat. It
+had simply not been hit yet.
+
+### Cost
+
+**350 tests** (170 game-core + 180 client).

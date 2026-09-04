@@ -56,6 +56,51 @@ const SOCKET_NODES = ['hand_R', 'arm-right'] as const;
  */
 const DEFAULT_FORWARD_OFFSET = Math.PI;
 
+/**
+ * The shape of an animation group this needs, so the rule can be tested without
+ * a scene.
+ */
+export interface SwitchableClip {
+  stop(): void;
+  reset(): void;
+  start(loop: boolean, speed: number): void;
+}
+
+/**
+ * Changes which clip is playing, putting back what the old one moved.
+ *
+ * The `reset()` on the **outgoing** group is the whole point, and it is there
+ * because of a bug reported from a real session: kill the enemy, wait for it to
+ * respawn, and it comes back alive and fighting — with a health bar, chasing the
+ * player — while lying flat on its face.
+ *
+ * A one-shot clip holds its final frame on purpose, so a swing ends on the
+ * follow-through and a death stays down. But `die` moves joints that `idle` does
+ * not animate at all, and starting `idle` therefore leaves every one of them
+ * exactly where the death left them. Measured rather than reasoned: standing,
+ * the head sits 0.94 m above the legs; after `die` it is 0.11 m; after switching
+ * back to `idle` it was still 0.11 m.
+ *
+ * Stopping a group does not undo it. `reset()` does, and it still works after
+ * `stop()` — which was worth checking, because the obvious alternative of
+ * seeking back to the first frame does not restore anything at all.
+ */
+export function switchClip(
+  outgoing: SwitchableClip | null,
+  incoming: SwitchableClip,
+  looping: boolean,
+): void {
+  if (outgoing !== null) {
+    outgoing.stop();
+    // Puts the joints this clip owns back where it found them. Without it, a
+    // clip's last pose outlives the clip.
+    outgoing.reset();
+  }
+
+  incoming.reset();
+  incoming.start(looping, 1);
+}
+
 export interface Character {
   /** Parent this to place the character in the world. */
   readonly root: TransformNode;
@@ -257,11 +302,9 @@ export async function loadCharacter(
       return;
     }
 
-    playing?.stop();
     done = false;
     const looping = isLooping(clip);
-    next.reset();
-    next.start(looping, 1);
+    switchClip(playing, next, looping);
     if (!looping) {
       // One-shots hold their final frame instead of snapping back, so a swing
       // ends on the follow-through and death stays down.
