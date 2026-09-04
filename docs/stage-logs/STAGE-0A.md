@@ -1893,3 +1893,60 @@ had simply not been hit yet.
 ### Cost
 
 **350 tests** (170 game-core + 180 client).
+
+## 0A.25 — bloom and glow, and shadows that will not render
+
+The mockup was re-sent with the note: _the lighting is still odd, no shadows, no
+bloom nor glow._ Three effects, and they are three different things — worth
+separating, because they look like one:
+
+- **Glow** makes an _emissive_ surface bleed light past its own edges. It is what
+  turns the gold rim and the rune inlay from painted-on brightness into something
+  lit from within. It only touches materials that declare themselves emissive,
+  of which the arena has seven.
+- **Bloom** takes whatever is bright _on screen_, whatever its source, and haloes
+  it. That is what the brazier flames need: they are additive sprites, not
+  emissive materials, so glow ignores them completely.
+- **Shadows** are the only one that says anything about _space_. A character
+  without one floats.
+
+Glow and bloom are in and visibly right: the gold rim haloes, the braziers throw
+warm pools, the green secret arch reads as arcane rather than as green paint.
+Bloom runs at half resolution with a 0.62 threshold — lower and the whole floor
+starts glowing, which reads as a dirty lens rather than as light. Image
+processing is left **off** in the pipeline, because `StandardMaterial` already
+applies the scene's tone mapping in its own shader and doing it twice washes the
+arena out.
+
+### The shadows do not work, and are shipped switched off
+
+The shadow map **renders**. Reading it back shows real depth values, so the 73
+casters are being drawn into it. The receiving side never samples it: no surface
+darkens, at any bias, with the light anywhere, at any darkness.
+
+Ruled out, each by testing rather than by reasoning:
+
+| suspected                                           | tested                                                                 |
+| --------------------------------------------------- | ---------------------------------------------------------------------- |
+| light at the model origin, as the point lights were | moved over the arena                                                   |
+| depth bias swallowing it                            | `bias` and `normalBias` both zeroed                                    |
+| PCF needing something the device lacks              | switched to exponential — which is how the map was confirmed non-empty |
+| frozen materials unable to recompile                | unfrozen                                                               |
+| stale shaders                                       | `markAllMaterialsAsDirty` with every flag                              |
+| receivers not marked                                | `receiveShadows` true on all 85                                        |
+| the four-light limit on `StandardMaterial`          | raised to eight                                                        |
+
+So it is behind `?shadows=1` and off by default. A shadow map that nothing
+samples still costs about half a millisecond a frame re-rendering static
+scenery, and a child's phone should not pay that for nothing — but deleting the
+code would make the next attempt start from zero, and the table above is the
+part worth keeping.
+
+The remaining suspicion is the merged geometry: every caster is one mesh
+spanning the whole arena, so the fitted shadow frustum is enormous, and the
+per-chunk merging that a larger region will need anyway (0A: culling) may fix
+this as a side effect.
+
+### Cost
+
+**355 tests.** Bundle 846 kB raw for the pipeline and glow layer.

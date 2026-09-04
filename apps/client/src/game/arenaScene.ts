@@ -62,6 +62,8 @@ export interface ArenaScene {
   readonly glowPoints: readonly ScenePoint[];
   /** Draw calls after merging, so the cost is reportable rather than guessed. */
   readonly drawCalls: number;
+  /** The merged scenery, for anything that needs to light or shadow it. */
+  readonly meshes: readonly Mesh[];
   /** Shows the danger ring the board ships with, which is off until a wave runs. */
   readonly setWaveActive: (active: boolean) => void;
   readonly dispose: () => void;
@@ -234,6 +236,7 @@ export async function createArenaScene(
     firePoints,
     glowPoints,
     drawCalls: merged.length,
+    meshes: merged,
     setWaveActive: (active) => {
       for (const mesh of waveOnly) {
         mesh.setEnabled(active);
@@ -275,6 +278,18 @@ export async function createArenaScene(
 export interface ArenaLighting {
   /** Lifts the hearth and gate while a wave is running, as the manifest asks. */
   readonly setWaveActive: (active: boolean) => void;
+  /**
+   * The light shadows are cast from.
+   *
+   * The moon, not the hearth — and that is a deliberate trade. The manifest
+   * marks the hearth as the shadow caster, which is right for the picture: it
+   * sits at the middle of the ring and throws every pillar's shadow outwards.
+   * But it is a *point* light, and a point light's shadow map is a cube — six
+   * renders of the scene instead of one. The moon is directional, costs a single
+   * map, and puts a shadow under the player, which is the part that changes how
+   * the game plays rather than how it looks.
+   */
+  readonly shadowLight: DirectionalLight;
   readonly dispose: () => void;
 }
 
@@ -394,6 +409,7 @@ export function createArenaLighting(
   moon.intensity = 1.8 * scale;
 
   return {
+    shadowLight: moon,
     setWaveActive: (active) => {
       hearth.intensity = (active ? HEARTH_WAVE : HEARTH_BASE) * scale;
       gate.intensity = (active ? GATE_WAVE : GATE_BASE) * scale;

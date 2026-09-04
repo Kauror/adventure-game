@@ -28,6 +28,7 @@ import { ENEMY_HEIGHT_METRES, createEnemyActor } from './game/enemy';
 import { createEngine } from './game/createEngine';
 import { createFlames } from './game/flames';
 import { createArenaScene, createArenaLighting } from './game/arenaScene';
+import { createArenaEffects } from './game/arenaEffects';
 import { createProps } from './game/props';
 import { applyFrameCap, frameCapFromLocation } from './game/frameCap';
 import { createDiagnostics } from './game/diagnostics';
@@ -193,6 +194,27 @@ async function start(): Promise<() => void> {
 
   const input = createInput(canvas, joystickLayer, requestedJoystickOrigin());
   const camera = createGameCamera(scene, engine, player.followTarget);
+
+  /*
+   * Bloom, glow and shadows. Created here rather than with the lights because
+   * the post-process pipeline attaches to a camera, and the camera follows the
+   * player, so it cannot exist until the player does.
+   *
+   * Characters are added to the shadow map along with the scenery: a shadow
+   * under a character is the only one of these three effects that changes how
+   * the game *plays* rather than how it looks, because it is how a player knows
+   * where they are standing.
+   */
+  const effects =
+    lighting === null || scene.activeCamera === null
+      ? null
+      : createArenaEffects(scene, scene.activeCamera, lighting.shadowLight, window.location.search);
+
+  effects?.castShadows([
+    ...('meshes' in scenery ? scenery.meshes : []),
+    ...heroModel.root.getChildMeshes(false),
+    ...foeModel.root.getChildMeshes(false),
+  ]);
 
   // The meter draws the bands assist actually produces, so an assisted player
   // simply sees a bigger target rather than being told anything.
@@ -388,6 +410,7 @@ async function start(): Promise<() => void> {
     impacts.dispose();
     rings.dispose();
     flames.dispose();
+    effects?.dispose();
     scenery.dispose();
     lighting?.dispose();
     enemy.dispose();
