@@ -16,7 +16,7 @@ import { loadCharacter } from '../game/character';
 import type { Character } from '../game/character';
 import { createEngine } from '../game/createEngine';
 import { createDiagnostics } from '../game/diagnostics';
-import { createFrameGate, frameCapFromLocation } from '../game/frameCap';
+import { applyFrameCap, frameCapFromLocation } from '../game/frameCap';
 import { createImpactBurst } from '../game/impactBurst';
 import { createScene } from '../game/createScene';
 import { createFrameStats } from './frameStats';
@@ -94,7 +94,7 @@ export async function runStressScene(
   );
   const camera = createGameCamera(scene, engine, () => ({ x: centre.x, y: 0, z: centre.z }));
 
-  const frames = createFrameGate(frameCapFromLocation());
+  const frames = applyFrameCap(engine, frameCapFromLocation());
 
   // Started before the characters load, not after. Sixteen models at ladder 1
   // and forty-eight at ladder 3 take a visible moment on a phone, and a black
@@ -102,9 +102,8 @@ export async function runStressScene(
   // already shipped once. The arena draws immediately; the crowd arrives into
   // it.
   engine.runRenderLoop(() => {
-    if (frames.shouldRender(performance.now())) {
-      scene.render();
-    }
+    frames.recordFrame(performance.now());
+    scene.render();
   });
 
   const humanoids = NORMAL_HUMANOIDS * options.ladder;

@@ -1399,3 +1399,79 @@ charge from off-screen. A test already pins that floor, which is why this got
 caught before shipping rather than after. Framing is now settleable on the
 device instead — `?zoom=` takes metres — because this is a judgement to make
 while holding the phone, not while reading the source.
+
+## 0A.16 — the frame cap was running the game in slow motion
+
+"Still slow, like in slowmo even." The word was exact, and it named a bug the
+previous three attempts at "slow" had all walked past.
+
+### What it was
+
+The 30 fps cap was a gate: the render loop ran at full rate and `scene.render()`
+was skipped on alternate ticks. The reasoning written down at the time was that
+a skipped frame simply hands the simulation a 33 ms delta instead of a 17 ms
+one, and `stepMovement` caps a frame anyway.
+
+That reasoning never checked **where Babylon measures time**.
+`AbstractEngine._processFrame` calls `beginFrame()` — which recomputes
+`_deltaTime` — on _every_ animation frame, before it invokes the render
+callback the gate lived in:
+
+```js
+_processFrame(timestamp) {
+    if (!this._contextWasLost && !this._isOverFrameTime(timestamp)) {
+        ...
+        this.beginFrame();          // <- _measureFps(), every tick
+        if (!this.skipFrameRender && !this._renderViews()) {
+            this._renderFrame();    // <- our callback, where the gate was
+        }
+```
+
+So the delta was always one _tick_, never one _rendered frame_. Every drawn
+frame was told 17 ms had passed when 33 ms really had. **The entire world —
+movement, the hammer, enemy recovery, hit stop — ran at exactly half speed, and
+at quarter speed on a 120 Hz ProMotion phone.**
+
+The cap is now `engine.maxFPS`, which Babylon tests in `_isOverFrameTime`
+_before_ `beginFrame`. A skipped tick never touches the clock; a rendered frame
+is told exactly how long since the last rendered frame. Babylon's accumulator
+also absorbs the arrival jitter `earlyTolerance` was invented to paper over, so
+that constant is gone.
+
+### Why nothing caught it
+
+There were nine tests on the frame gate. They were good tests. They simulated
+frame arrivals at 60 and 120 Hz, checked the drawn count was 30, checked the
+reported rate was 30 rather than 60, checked stalls and the first frame. All of
+them passed, for months, while the game ran at half speed.
+
+**Not one of them could have failed**, because every one measured how often
+frames were drawn and the bug was in what each frame was _told about time_.
+Counting frames cannot detect a lie about the clock.
+
+The replacements assert the mechanism instead: the cap must be handed to the
+engine, because that is the only place it can be applied before the clock is
+sampled. A cheaper test that is actually load-bearing.
+
+This is the third bug this stage where the tests described the code and not the
+game — after the health pips driven by a debug poll, and the animator writing
+Euler angles nothing read. The pattern is the same every time: **asserting the
+value we just computed, instead of the effect it was supposed to have.**
+
+### The zoom guard is withdrawn
+
+0A.14's tap-sequence guard was reported as making the zoom _worse_. It is
+removed rather than defended — two guesses in a row at a bug that cannot be
+reproduced on a desktop, and a third would be worse than none, because every
+attempt so far changes touch handling during a fight.
+
+`touch-action` and `dblclick` remain. The next move is measurement: the debug
+readout has shown `visualViewport.scale` on its viewport line since 0A.1 — the
+`@1.00×` in "Vaade" — and nobody has yet read it during a session that went
+wrong. Whether the page is zoomed at all is still, after three attempts, an
+open question.
+
+### Cost
+
+**332 tests** (170 game-core + 162 client), down from 342: the nine frame-gate
+tests that could never fail were replaced by four that can.

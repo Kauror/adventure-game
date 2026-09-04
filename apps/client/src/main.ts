@@ -22,7 +22,7 @@ import { ENEMY_HEIGHT_METRES, createEnemyActor } from './game/enemy';
 import { createEngine } from './game/createEngine';
 import { createFlames } from './game/flames';
 import { createProps } from './game/props';
-import { createFrameGate, frameCapFromLocation } from './game/frameCap';
+import { applyFrameCap, frameCapFromLocation } from './game/frameCap';
 import { createDiagnostics } from './game/diagnostics';
 import { createHitStop } from './game/hitStop';
 import { createImpactBurst } from './game/impactBurst';
@@ -162,7 +162,7 @@ async function start(): Promise<() => void> {
   // Capped rather than free-running: sixty frames of a fixed-camera scene with
   // six-box characters buys little on a phone and costs battery and heat.
   // `?fps=60` restores the uncapped behaviour for a side-by-side.
-  const frames = createFrameGate(frameCapFromLocation());
+  const frames = applyFrameCap(engine, frameCapFromLocation());
   const diagnostics = createDiagnostics(engine, frames);
   const audio = createAudio();
   const hitStop = createHitStop();
@@ -326,10 +326,12 @@ async function start(): Promise<() => void> {
     assist,
   });
 
+  // The engine enforces the cap itself, before it samples the clock. Skipping
+  // renders from in here is what made the game run in slow motion — see
+  // frameCap.ts.
   engine.runRenderLoop(() => {
-    if (frames.shouldRender(performance.now())) {
-      scene.render();
-    }
+    frames.recordFrame(performance.now());
+    scene.render();
   });
 
   return () => {
