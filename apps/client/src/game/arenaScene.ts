@@ -259,6 +259,12 @@ export async function createArenaScene(
  * sprite, which is exactly the budget PLAN §26 asks for: light is spent on the
  * fight, not on the scenery.
  *
+ * The whole rig is brighter than the manifest asks for, after two rounds of
+ * "still too dark" from the phone. The board was authored on a desktop monitor
+ * in a dark room; the game is played on a handset, often not in the dark, and a
+ * twilight scene that reads as moody on one is unplayably murky on the other.
+ * `?light=` remains the dial, but the default now assumes a phone.
+ *
  * The intensities are **not** the manifest's numbers, and that is deliberate.
  * Those are three.js values, where a point light carries `distance` and `decay`
  * and the renderer normalises differently; copying `90` into Babylon puts a
@@ -283,10 +289,10 @@ export interface ArenaLighting {
  * `distance` and `decay`. These are the Babylon equivalents, set to put roughly
  * the same amount of warm light on the far rim.
  */
-const HEARTH_BASE = 48;
-const HEARTH_WAVE = 64;
-const GATE_BASE = 22;
-const GATE_WAVE = 30;
+const HEARTH_BASE = 75;
+const HEARTH_WAVE = 100;
+const GATE_BASE = 34;
+const GATE_WAVE = 46;
 
 /** #241E44 — the fog and the void behind the walls are the same colour. */
 const TWILIGHT_VOID = new Color3(0.141, 0.118, 0.267);
@@ -309,7 +315,10 @@ export function lightScaleFromSearch(search: string): number {
   return Number.isFinite(parsed) && parsed >= 0.2 && parsed <= 4 ? parsed : 1;
 }
 
-export function createArenaLighting(scene: Scene): ArenaLighting {
+export function createArenaLighting(
+  scene: Scene,
+  centre: { readonly x: number; readonly z: number },
+): ArenaLighting {
   const scale = lightScaleFromSearch(typeof window === 'undefined' ? '' : window.location.search);
   scene.clearColor = new Color4(TWILIGHT_VOID.r, TWILIGHT_VOID.g, TWILIGHT_VOID.b, 1);
 
@@ -330,7 +339,7 @@ export function createArenaLighting(scene: Scene): ArenaLighting {
    */
   scene.imageProcessingConfiguration.toneMappingEnabled = true;
   scene.imageProcessingConfiguration.toneMappingType = 1; // ACES
-  scene.imageProcessingConfiguration.exposure = 1.6 * scale;
+  scene.imageProcessingConfiguration.exposure = 2.1 * scale;
 
   const twilight = new HemisphericLight('twilight-ambient', new Vector3(0, 1, 0), scene);
   twilight.diffuse = new Color3(0.478, 0.416, 0.659);
@@ -349,19 +358,31 @@ export function createArenaLighting(scene: Scene): ArenaLighting {
    * shadows are a colour choice, and reading them as an absence of light is how
    * a scene ends up muddy.
    */
-  twilight.groundColor = new Color3(0.38, 0.35, 0.52);
+  twilight.groundColor = new Color3(0.46, 0.43, 0.6);
   // 1.35 is the manifest's figure and it is a three.js one. Babylon's
   // hemispheric light is dimmer for the same number, and the board's stone is
   // near-black greyscale — every texture in the export averages under 15% grey,
   // because all the colour was always meant to come from the lights.
-  twilight.intensity = 2.6 * scale;
+  twilight.intensity = 3.8 * scale;
 
-  const hearth = new PointLight('hearth-light', new Vector3(0, 3.2, 0), scene);
+  /*
+   * Offset by the same centre as the model, and this is the bug that made the
+   * arena look flat no matter how far the ambient was pushed.
+   *
+   * The manifest gives light positions in the model's own space, where the
+   * hearth sits at the middle of the ring. The model is moved to the region's
+   * centre on load; the lights were not, so both point lights spent every frame
+   * 18 m away at the region's south-west corner, lighting the outside of a wall.
+   * Everything visible was hemispheric and directional — which have no position
+   * — so the scene had ambient and a moon and nothing else, and raising the
+   * ambient only ever made a flat picture brighter.
+   */
+  const hearth = new PointLight('hearth-light', new Vector3(centre.x, 3.2, centre.z), scene);
   hearth.diffuse = new Color3(0.949, 0.569, 0.239);
   hearth.range = 30;
   hearth.intensity = HEARTH_BASE * scale;
 
-  const gate = new PointLight('gate-light', new Vector3(9.6, 2.2, 0), scene);
+  const gate = new PointLight('gate-light', new Vector3(centre.x + 9.6, 2.2, centre.z), scene);
   gate.diffuse = new Color3(0.878, 0.416, 0.659);
   gate.range = 14;
   gate.intensity = GATE_BASE * scale;
@@ -370,7 +391,7 @@ export function createArenaLighting(scene: Scene): ArenaLighting {
   // light travels from there towards the arena.
   const moon = new DirectionalLight('moon-rim', new Vector3(8, -12, 6), scene);
   moon.diffuse = new Color3(0.431, 0.659, 0.784);
-  moon.intensity = 1.35 * scale;
+  moon.intensity = 1.8 * scale;
 
   return {
     setWaveActive: (active) => {

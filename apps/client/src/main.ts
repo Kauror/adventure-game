@@ -149,7 +149,13 @@ async function start(): Promise<() => void> {
         }),
   ]);
 
-  const lighting = region.sceneModel === undefined ? null : createArenaLighting(scene);
+  const lighting =
+    region.sceneModel === undefined
+      ? null
+      : createArenaLighting(scene, {
+          x: (region.width * TILE_METRES) / 2,
+          z: (region.height * TILE_METRES) / 2,
+        });
 
   // The braziers and torches came out of glTF without their fire; sprites have
   // no equivalent in the format and were dropped on export. The authored arena

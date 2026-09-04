@@ -1743,3 +1743,53 @@ child who lands on a bad link still gets a playable screen.
 ### Cost
 
 **345 tests** (170 game-core + 175 client).
+
+## 0A.22 — the lights were never over the arena
+
+Two more reports from the phone: still standing inside the scenery, still too
+dark. Both had causes rather than being matters of degree.
+
+### Standing inside a fallen column
+
+The obstacle rule required a box to reach 0.95 m to block, measured from zero.
+The fallen columns are 0.3 m of stone lying on ground that is itself at 0.4 m, so
+they never qualified — and the player stood in the middle of one, which is what
+the screenshot showed.
+
+The height test is **relative to the local ground** now: the fight floor is at 0,
+the rim step at 0.2, the village ground at 0.4, and anything standing more than a
+shin above its own ground is an obstacle. Fallen columns, crates and racks are
+all in. **60 blocked interior tiles, from 24** — and the fight floor is still
+entirely clear, which the tests check in both directions.
+
+### The lights were 18 m away, lighting the outside of a wall
+
+This is the one that mattered, and it had been hiding behind every brightness
+change made so far.
+
+The manifest gives light positions in the **model's own space**, where the hearth
+sits at the middle of the ring. 0A.20 moved the model to the region's centre —
+because a region occupies world space from its corner — and moved the model
+_only_. Both point lights stayed at the origin, 18 m away at the region's
+south-west corner.
+
+So the arena was lit by a hemispheric light and a directional one, neither of
+which has a position. Everything visible was ambient. That is why it looked flat,
+why the ring edges stayed dark, and why raising the ambient twice only ever made
+a flat picture brighter: **there was no local light in the scene at all.**
+
+The lesson is narrow and worth keeping: when a thing is moved into place, the
+things that describe it have to move with it, and a light is easy to forget
+precisely because it is not part of the model.
+
+### Brightness
+
+The rig now runs well above the manifest — exposure 2.1, ambient 3.8, hearth 75 —
+after two rounds of "still too dark". The board was authored on a desktop monitor
+in a dark room; the game is played on a handset, often not in the dark, and a
+twilight scene that reads as moody on one is murky on the other. `?light=`
+remains the dial; the default now assumes a phone.
+
+### Cost
+
+**345 tests.**
