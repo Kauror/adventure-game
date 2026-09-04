@@ -84,4 +84,19 @@ export interface Region {
   readonly height: number;
   readonly tiles: readonly (readonly TileType[])[];
   readonly objects: readonly RegionObject[];
+  /**
+   * A single authored model that *is* this region's scenery, if it has one.
+   *
+   * PLAN §7 makes the grid the truth and the 3D "decoration". Until now the
+   * decoration was derived from the grid — a quad per tile, coloured by terrain
+   * — which is honest but can only ever look like a grid. A region may instead
+   * name a model built by an artist, in which case the grid keeps doing the only
+   * job it ever had (walkability, elevation, pathfinding, the server's view of
+   * the world) and stops being asked to describe how anything looks.
+   *
+   * The two must be authored to agree. Nothing enforces that, and nothing
+   * sensibly could: a mismatch is an art bug, visible immediately, not a class
+   * of error worth building a validator for before it has happened twice.
+   */
+  readonly sceneModel?: string;
 }

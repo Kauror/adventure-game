@@ -1612,3 +1612,82 @@ browser and the next move is a different lever, not a fifth guess.
 ### Cost
 
 **339 tests.**
+
+## 0A.20 — the arena, as it was designed
+
+An artist's arena arrived as `videvikumaa_arena.zip`: a 1.5 MB GLB, a manifest,
+and 28 loose textures. It replaces the grid-derived scenery entirely.
+
+### The grid stopped describing how anything looks
+
+PLAN §7 makes the grid the truth and the 3D "decoration". Until now the
+decoration was _derived_ from the grid — one textured quad per tile — which is
+honest and can only ever look like a grid. A region may now name a
+`sceneModel`, in which case the grid keeps the only job it ever had (walkability,
+elevation, the server's view of the world) and an authored model does the
+looking.
+
+The walkability grid is **generated from the model's own geometry** rather than
+drawn by hand: a script reads the GLB, finds the fight floor at r=8, the rim step
+at +0.2, the village ground at +0.4 and the wall square at ±12, and writes
+`test-arena.json`. That is the only reason the two can be trusted to agree.
+
+### What the manifest was worth
+
+glTF carries neither sprites nor lights, so the export dropped every flame, every
+glow and all four lights. The artist's answer was better than a list of
+coordinates: **named empty nodes** at exactly the right places — ten `flame`,
+four `brazier_glow`, six `torch_glow`, plus `gate_spill`, `secret_spill`,
+`shrine_glow` and `grove_glow`. So the sprite anchors are read out of the model,
+and moving a brazier in the source moves its fire with it. Only the four lights
+are transcribed by hand, because there is nowhere in the file to keep them.
+
+### Five bugs, and what each one taught
+
+1. **The arena was 13 m from the player.** A region occupies world space from
+   its **south-west corner** — `tileCentreToWorld` is `(col + 0.5)` — while an
+   authored model is built around its **centre**. Loaded as-is, the player
+   spawned outside the walls.
+2. **A test that threw away real walls.** The ember cloud is a POINTS primitive
+   and had to go; "has no indices" looked like the way to find it, and it also
+   matched 10 legitimately non-indexed triangle meshes. Selected by name now.
+3. **A black square on the fight floor.** `StandardMaterial` needs transparency
+   asked for _twice_ — the texture flagged as having alpha, and the material told
+   to use it — where `PBRMaterial` reads it unprompted. Thirteen of the arena's
+   materials blend; the rune mosaic is a 256 px texture with a transparent
+   surround, and it rendered as a black slab. This was a latent bug in
+   `flatMaterials` from 0A.13; nothing had blended before.
+4. **A permanent danger telegraph.** The board ships its wave-active ring as
+   geometry, because the design viewer had a toggle. Red is reserved for danger
+   by the manifest's own colour law, and a red ring that never means anything
+   teaches a child to ignore the one colour that must never be ignored. Hidden
+   until a wave runs.
+5. **The lights were a hundred times too dim.** The manifest's `90` and `45` are
+   three.js numbers, where a point light carries its own `distance` and `decay`.
+   Babylon's intensity is brightness _at one metre_ under inverse-square falloff:
+   at the 8 m rim, `1.15` arrives as one sixty-fourth of itself. The whole board
+   came back looking like a cave.
+
+Worth recording separately, because it explains the fifth: **every texture in
+the export is a greyscale mask** — the stone averages under 15% grey, peaking
+near white. None of the colour is in the surfaces. It is all lights and seven
+emissive materials, which is exactly what "lighting = the board's law" meant.
+
+### Cost
+
+**484 meshes and 161 materials down to 41 draw calls.** The export carries one
+material and one embedded image per mesh; only **19 of the 154 images are
+distinct**, so collapsing by the artist's own material name is safe and is what
+makes the arena affordable. In play: **77 draw calls, 10,900 triangles, 4
+lights, no shadows** — against 90 and 11,500 for the arena it replaces.
+
+**340 tests** (170 game-core + 170 client).
+
+### Still open
+
+The lighting is matched by eye, not by measurement, and the two renderers
+disagree in ways no transcription fixes. It reads as the same place; it is not
+pixel-identical to the board, and the remaining difference is mostly the design
+viewer's bloom. Embers are dropped rather than rebuilt. The tone curve is ACES
+at exposure 1.5, one notch above the manifest's 1.35, for the same reason the
+lights are not the manifest's numbers.

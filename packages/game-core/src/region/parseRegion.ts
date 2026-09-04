@@ -188,7 +188,25 @@ export function parseRegion(raw: unknown): Region {
     parseObject(raw, index, width, height),
   );
 
-  const region: Region = { schemaVersion: 1, id, nameKey, width, height, tiles, objects };
+  // Optional: a region without one still draws itself from the grid.
+  const rawSceneModel = record['sceneModel'];
+  if (rawSceneModel !== undefined && typeof rawSceneModel !== 'string') {
+    fail('sceneModel must be a string naming a model');
+  }
+  const sceneModel = rawSceneModel as string | undefined;
+
+  const region: Region = {
+    schemaVersion: 1,
+    id,
+    nameKey,
+    width,
+    height,
+    tiles,
+    objects,
+    // `exactOptionalPropertyTypes` is on: an explicit `undefined` is not the
+    // same as an absent key, so the property is only added when it has a value.
+    ...(sceneModel === undefined ? {} : { sceneModel }),
+  };
 
   // A spawn inside a wall is the kind of mistake that is silent until a child is
   // stuck in scenery, so it is a parse error rather than a runtime surprise.

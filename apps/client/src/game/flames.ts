@@ -61,8 +61,20 @@ function additiveMaterial(scene: Scene, name: string, url: string): StandardMate
   return material;
 }
 
-export function createFlames(scene: Scene, points: readonly FirePoint[]): Flames {
-  if (points.length === 0) {
+/**
+ * @param points  where a flame burns.
+ * @param glows   where a wider, softer pool of light sits. Separate because the
+ *                authored arena marks the two with different nodes: a torch has
+ *                a flame *and* a glow, but the gate spill and the shrine glow
+ *                have no flame at all, and drawing one there would put fire in
+ *                the middle of a crystal.
+ */
+export function createFlames(
+  scene: Scene,
+  points: readonly FirePoint[],
+  glows: readonly FirePoint[] = points,
+): Flames {
+  if (points.length === 0 && glows.length === 0) {
     return { dispose: () => undefined };
   }
 
@@ -70,9 +82,9 @@ export function createFlames(scene: Scene, points: readonly FirePoint[]): Flames
   const glowMaterial = additiveMaterial(scene, 'glow-material', GLOW_TEXTURE);
 
   const flames: Mesh[] = [];
-  const glows: Mesh[] = [];
+  const glowMeshes: Mesh[] = [];
 
-  points.forEach((point, index) => {
+  glows.forEach((point, index) => {
     const glow = MeshBuilder.CreatePlane(`fire-glow-${index}`, { size: GLOW_SIZE }, scene);
     glow.material = glowMaterial;
     glow.billboardMode = Mesh.BILLBOARDMODE_ALL;
@@ -81,8 +93,10 @@ export function createFlames(scene: Scene, points: readonly FirePoint[]): Flames
     // Never write depth: two overlapping additive quads must not cut holes in
     // each other.
     glow.material.needDepthPrePass = false;
-    glows.push(glow);
+    glowMeshes.push(glow);
+  });
 
+  points.forEach((point, index) => {
     const flame = MeshBuilder.CreatePlane(`fire-flame-${index}`, { size: FLAME_SIZE }, scene);
     flame.material = flameMaterial;
     flame.billboardMode = Mesh.BILLBOARDMODE_ALL;
@@ -103,7 +117,7 @@ export function createFlames(scene: Scene, points: readonly FirePoint[]): Flames
       flame.scaling.set(flicker, flicker * 1.06, 1);
     });
 
-    glows.forEach((glow, index) => {
+    glowMeshes.forEach((glow, index) => {
       const beat = elapsed * 5 + index * 2.3;
       const breath = 1 + Math.sin(beat) * 0.07;
       glow.scaling.set(breath, breath, 1);
@@ -113,7 +127,7 @@ export function createFlames(scene: Scene, points: readonly FirePoint[]): Flames
   return {
     dispose: () => {
       scene.onBeforeRenderObservable.remove(observer);
-      for (const mesh of [...flames, ...glows]) {
+      for (const mesh of [...flames, ...glowMeshes]) {
         mesh.dispose();
       }
       flameMaterial.dispose(true, true);

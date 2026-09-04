@@ -69,6 +69,29 @@ function flatten(scene: Scene, source: Material): StandardMaterial {
     flat.transparencyMode = pbr.transparencyMode;
   }
 
+  /*
+   * Transparency has to be asked for twice.
+   *
+   * A glTF material with `alphaMode: "BLEND"` carries its transparency in the
+   * base colour texture's alpha channel, and `PBRMaterial` reads it there
+   * without being told. `StandardMaterial` does not: it needs the texture
+   * flagged as having alpha *and* to be told to use it, and until both are set
+   * it draws the transparent pixels as opaque black.
+   *
+   * The arena made this impossible to miss — the rune mosaic at the centre of
+   * the fight floor is a 256 px texture with a transparent surround, and it
+   * rendered as a black square sitting on the floor. Thirteen of its materials
+   * blend: the mosaic, the puddles and every banner.
+   */
+  const blends =
+    typeof (source as { needAlphaBlending?: () => boolean }).needAlphaBlending === 'function' &&
+    (source as { needAlphaBlending: () => boolean }).needAlphaBlending();
+
+  if (blends && flat.diffuseTexture !== null) {
+    flat.diffuseTexture.hasAlpha = true;
+    flat.useAlphaFromDiffuseTexture = true;
+  }
+
   return flat;
 }
 

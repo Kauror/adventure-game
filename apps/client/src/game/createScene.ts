@@ -23,10 +23,14 @@ export function createScene(engine: Engine, region: Region): Scene {
   // held down on a joystick, is every frame.
   scene.skipPointerMovePicking = true;
 
-  const light = new HemisphericLight('scene-light', new Vector3(0.4, 1, 0.2), scene);
-  light.intensity = 0.95;
-
-  buildRegion(scene, region);
+  // A region with an authored model brings its own lighting and its own
+  // scenery. Building either here would double the light and draw a grid of
+  // quads through the middle of the artist's floor.
+  if (region.sceneModel === undefined) {
+    const light = new HemisphericLight('scene-light', new Vector3(0.4, 1, 0.2), scene);
+    light.intensity = 0.95;
+    buildRegion(scene, region);
+  }
 
   return scene;
 }

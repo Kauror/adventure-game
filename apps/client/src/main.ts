@@ -1,6 +1,12 @@
 import './styles.css';
 
-import { elevationAtWorld, parseRegion, spawnPoint, tileCentreToWorld } from '@adventure/game-core';
+import {
+  TILE_METRES,
+  elevationAtWorld,
+  parseRegion,
+  spawnPoint,
+  tileCentreToWorld,
+} from '@adventure/game-core';
 import { TEST_ARENA_ID, regions } from '@adventure/content';
 
 import {
@@ -21,6 +27,7 @@ import { loadCharacter } from './game/character';
 import { ENEMY_HEIGHT_METRES, createEnemyActor } from './game/enemy';
 import { createEngine } from './game/createEngine';
 import { createFlames } from './game/flames';
+import { createArenaScene, createArenaLighting } from './game/arenaScene';
 import { createProps } from './game/props';
 import { applyFrameCap, frameCapFromLocation } from './game/frameCap';
 import { createDiagnostics } from './game/diagnostics';
@@ -128,16 +135,31 @@ async function start(): Promise<() => void> {
   // Boot waits for the models. They are ~110 kB each and served from the same
   // origin, so this is a blink; a loading screen would be more machinery than
   // the wait deserves, and Stage 0A has nothing else to show during it.
-  const [heroModel, foeModel, props] = await Promise.all([
+  // A region either names an authored model or is dressed from its own data.
+  // Both paths end with the same thing — somewhere to stand and a list of
+  // places that should be on fire.
+  const [heroModel, foeModel, scenery] = await Promise.all([
     loadCharacter(scene, HERO_MODEL, { heightMetres: PLAYER_HEIGHT_METRES }),
     loadCharacter(scene, FOE_MODEL, { heightMetres: ENEMY_HEIGHT_METRES }),
-    // The arena's dressing, placed from the region data.
-    createProps(scene, region),
+    region.sceneModel === undefined
+      ? createProps(scene, region)
+      : createArenaScene(scene, region.sceneModel, {
+          x: (region.width * TILE_METRES) / 2,
+          z: (region.height * TILE_METRES) / 2,
+        }),
   ]);
 
-  // The braziers and torches came out of glTF without their fire; the sprites
-  // had no equivalent in the format and were dropped on export.
-  const flames = createFlames(scene, props.firePoints);
+  const lighting = region.sceneModel === undefined ? null : createArenaLighting(scene);
+
+  // The braziers and torches came out of glTF without their fire; sprites have
+  // no equivalent in the format and were dropped on export. The authored arena
+  // leaves named empty nodes where each one belongs, so the positions come out
+  // of the model rather than out of this file.
+  const flames = createFlames(
+    scene,
+    scenery.firePoints,
+    'glowPoints' in scenery ? scenery.glowPoints : [],
+  );
 
   const player = createPlayer(scene, region, spawnAt, assist, heroModel);
 
@@ -343,7 +365,8 @@ async function start(): Promise<() => void> {
     impacts.dispose();
     rings.dispose();
     flames.dispose();
-    props.dispose();
+    scenery.dispose();
+    lighting?.dispose();
     enemy.dispose();
     chargeMeter.dispose();
     input.dispose();

@@ -109,3 +109,23 @@ One block per asset or asset pack:
 - **Attribution-required assets** must also have their required credit string recorded here verbatim, so the in-game credits screen can be generated from this file later.
 - **Binary assets go to Git LFS** — see `.gitattributes` and `docs/decisions/0001-foundation-stack.md`.
 - Children's own drawings are **not** external assets and are not listed here; their provenance lives in the database (`item_design`, PLAN §19).
+
+## Videvikumaa — the Arena (`arena.glb`)
+
+|         |                                                                                          |
+| ------- | ---------------------------------------------------------------------------------------- |
+| Source  | Built for this project with Claude Design; exported by `THREE.GLTFExporter r184`.        |
+| Files   | `apps/client/public/models/arena/arena.glb`, source zip and manifest in `assets/world/`. |
+| Licence | The family's own work. No third-party asset is included.                                 |
+| Scale   | 1 unit = 1 m, Y up, origin at the centre of the fight floor.                             |
+
+Fight floor y=0 (r=8 m), rim step +0.2, village ground +0.4; walls enclose a
+24 m square. The walkability grid in `packages/content/regions/test-arena.json`
+is **generated from this model's own geometry**, which is the only reason the
+two can be trusted to agree.
+
+`assets/world/videvikumaa-arena-handoff.md` is the artist's manifest and is
+load-bearing: glTF carries neither sprites nor lights, so the exporter dropped
+the flames, the glows and all four lights. The model keeps named empty nodes
+where each sprite belongs (`flame`, `brazier_glow`, `torch_glow`, `gate_spill`,
+`secret_spill`, `shrine_glow`, `grove_glow`) and the manifest lists the lights.
