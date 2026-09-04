@@ -26,7 +26,7 @@
     },
     "o": {
       "walkable": false,
-      "elevation": 0.4,
+      "elevation": 0,
       "terrain": "stone-broken"
     }
   },
@@ -34,26 +34,26 @@
     "##########################",
     "##########################",
     "##gggggggggggggggggggggg##",
-    "##ggggggggggoggggggggggg##",
-    "##ggggggogggrrggoggggggg##",
-    "##gggggggr......rggggggg##",
-    "##gggggr..........rogggg##",
-    "##gggor............rgggg##",
-    "##gggg..............gggg##",
-    "##gggr..............rggg##",
+    "##gggggggggg#ggg#ggggggg##",
+    "##gggggg#gggrrgg#ggggggg##",
+    "##gggggg#r......rggggggg##",
+    "##gggggr..........r#gggg##",
+    "####g#r............rgggg##",
+    "####gg..............gggg##",
+    "###ggr..............rggg##",
     "##ggg................ggg##",
-    "##ggg................ggg##",
+    "##ggg................gg###",
     "##ggr................rgg##",
     "##ggr................rgg##",
-    "##ggg................ggg##",
+    "##ggg................gg###",
     "##ggg................ggg##",
     "##gggr..............rggg##",
-    "##gggg..............gggg##",
-    "##gggor............rgggg##",
-    "##gggggr..........rogggg##",
-    "##gggogggr......rggggggg##",
-    "##ggggggogggrrgggggggggg##",
-    "##ggggggggggogggoggggggg##",
+    "###ggg..............gggg##",
+    "##ggg#r............rgggg##",
+    "##ggg#gr..........r#gggg##",
+    "##ggg#gggr......rggggggg##",
+    "##ggg#gg#gggrrgg#ggggggg##",
+    "##gggggggggg#ggg#ggggggg##",
     "##gggggggggggggggggggggg##",
     "##########################",
     "##########################"
@@ -80,7 +80,7 @@
       "type": "enemy-spawn",
       "tile": {
         "col": 17,
-        "row": 18
+        "row": 8
       }
     }
   ]

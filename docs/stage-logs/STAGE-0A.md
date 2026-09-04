@@ -1691,3 +1691,55 @@ pixel-identical to the board, and the remaining difference is mostly the design
 viewer's bloom. Embers are dropped rather than rebuilt. The tone curve is ACES
 at exposure 1.5, one notch above the manifest's 1.35, for the same reason the
 lights are not the manifest's numbers.
+
+## 0A.21 — collision the player can feel, and a rim you can see
+
+Two reports from the rebuilt arena: the player walked through the scenery, and
+the ring edges were too dark to read.
+
+### Walking through pillars
+
+The generated grid derived obstacles from prop **node origins** and found eleven
+tiles. Eleven scattered tiles look plausible in a JSON file and are
+indistinguishable from none while playing: the ring of ruins, the crates and both
+weapon racks were all walk-through.
+
+It is generated from **world-space bounding boxes** now, with two rules that
+matter more than the geometry:
+
+- a box only blocks if it occupies the walking band — its underside below 1.2 m
+  and its top above 0.95 m. Without that the gate arch's span, three metres over
+  the player's head, sealed the only entrance;
+- a tile blocks on **overlap area**, not on whether its centre sits inside a box.
+  The first attempt shrank each box by 0.18 m and tested the centre, which
+  silently unsealed the outer wall: a 0.5 m wall shrunk that far almost never
+  contains a tile centre, and the arena quietly lost its border.
+
+**24 blocked interior tiles now, against 11.** The tests assert both directions —
+enough scenery blocks, and the 15 m fight floor is entirely clear, because a
+pillar in the middle of a duelling circle would be the worse bug.
+
+### The dark rim
+
+The manifest's ground colour is `#3A4A5C` and taken literally it left the rim
+almost black. A hemispheric light gives a surface its sky colour facing up and
+its ground colour facing down — and every vertical edge in the arena, the rim
+step included, sits in the middle of that mix. A dark ground colour makes
+exactly the edges a player needs to read disappear.
+
+Lifted, and lifted **towards violet rather than towards grey**. In the reference
+art the shadows are deep blue and purple, never black; treating a dark shadow as
+an absence of light is how a scene ends up muddy instead of moody.
+
+### `?light=`
+
+The lighting cannot be settled where it is written. The manifest's numbers are
+three.js units, the art was authored through a tone curve Babylon does not
+reproduce exactly, and the screen whose judgement counts is a phone in Estonia.
+So brightness is a dial — `?light=1.3`, `?light=0.8` — for the same reason
+`?zoom=` and `?dpr=` are. Out-of-range values are ignored rather than obeyed: a
+child who lands on a bad link still gets a playable screen.
+
+### Cost
+
+**345 tests** (170 game-core + 175 client).

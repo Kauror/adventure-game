@@ -140,6 +140,47 @@ describe('test arena content', () => {
     expect(used).not.toContain('platform');
   });
 
+  it('blocks the scenery you can see, because walking through a pillar was the bug', () => {
+    /*
+     * The first generated grid derived obstacles from prop *node origins* and
+     * found eleven tiles. The player walked straight through the ring of ruins,
+     * the crates and the weapon racks — reported from a real session.
+     *
+     * The grid is now built from the model's world-space bounding boxes, and a
+     * tile blocks when solid geometry covers enough of its square. Counting is
+     * the assertion that would have failed: eleven scattered tiles look fine in
+     * a JSON file and are indistinguishable from none while playing.
+     */
+    let blockedInside = 0;
+    for (let row = 2; row < region.height - 2; row += 1) {
+      for (let col = 2; col < region.width - 2; col += 1) {
+        if (tileAt(region, col, row)?.walkable === false) {
+          blockedInside += 1;
+        }
+      }
+    }
+
+    expect(blockedInside).toBeGreaterThan(20);
+  });
+
+  it('leaves the whole fight floor clear, so nothing blocks the fight', () => {
+    // The other half of the same rule. Obstacles belong on the rim and the
+    // ground outside it; a pillar standing in the middle of a 16 m duelling
+    // circle would be a worse bug than the one above.
+    const centreCol = region.width / 2;
+    const centreRow = region.height / 2;
+
+    for (let row = 0; row < region.height; row += 1) {
+      for (let col = 0; col < region.width; col += 1) {
+        const x = col + 0.5 - centreCol;
+        const z = centreRow - row - 0.5;
+        if (Math.hypot(x, z) <= 7.5) {
+          expect(tileAt(region, col, row)?.walkable, `tile ${col},${row}`).toBe(true);
+        }
+      }
+    }
+  });
+
   it('places a player spawn and enemy spawns on walkable ground', () => {
     const player = spawnPoint(region, 'player-spawn');
     expect(player).toBeDefined();

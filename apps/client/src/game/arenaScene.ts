@@ -291,7 +291,26 @@ const GATE_WAVE = 30;
 /** #241E44 — the fog and the void behind the walls are the same colour. */
 const TWILIGHT_VOID = new Color3(0.141, 0.118, 0.267);
 
+/**
+ * `?light=1.3` brightens everything, `?light=0.8` darkens it.
+ *
+ * Here for the same reason `?zoom=` and `?dpr=` are: the two renderers'
+ * lighting units do not correspond, the art was authored through a tone curve
+ * this engine does not reproduce exactly, and the only screen whose judgement
+ * matters is a phone in Estonia. A number that can be turned on the device
+ * beats another round of me guessing from a desktop.
+ */
+export function lightScaleFromSearch(search: string): number {
+  const requested = new URLSearchParams(search).get('light');
+  if (requested === null) {
+    return 1;
+  }
+  const parsed = Number.parseFloat(requested);
+  return Number.isFinite(parsed) && parsed >= 0.2 && parsed <= 4 ? parsed : 1;
+}
+
 export function createArenaLighting(scene: Scene): ArenaLighting {
+  const scale = lightScaleFromSearch(typeof window === 'undefined' ? '' : window.location.search);
   scene.clearColor = new Color4(TWILIGHT_VOID.r, TWILIGHT_VOID.g, TWILIGHT_VOID.b, 1);
 
   // Exponential fog. It is what puts the far wall *behind* the fight rather
@@ -311,37 +330,52 @@ export function createArenaLighting(scene: Scene): ArenaLighting {
    */
   scene.imageProcessingConfiguration.toneMappingEnabled = true;
   scene.imageProcessingConfiguration.toneMappingType = 1; // ACES
-  scene.imageProcessingConfiguration.exposure = 1.5;
+  scene.imageProcessingConfiguration.exposure = 1.6 * scale;
 
   const twilight = new HemisphericLight('twilight-ambient', new Vector3(0, 1, 0), scene);
   twilight.diffuse = new Color3(0.478, 0.416, 0.659);
-  twilight.groundColor = new Color3(0.227, 0.29, 0.361);
+  /*
+   * The manifest's ground colour is #3A4A5C, and taken literally it left the
+   * arena rim almost black.
+   *
+   * A hemispheric light gives a surface the sky colour when it faces up and the
+   * ground colour when it faces down, mixing between the two. The rim step, the
+   * wall faces and every vertical edge in the arena sit near the middle of that
+   * mix, so they are lit mostly by the ground colour — and a dark ground colour
+   * makes exactly the edges a player needs to read disappear.
+   *
+   * Lifted, and lifted *towards violet* rather than towards grey: in the
+   * reference art the shadows are deep blue and purple, never black. Dark
+   * shadows are a colour choice, and reading them as an absence of light is how
+   * a scene ends up muddy.
+   */
+  twilight.groundColor = new Color3(0.38, 0.35, 0.52);
   // 1.35 is the manifest's figure and it is a three.js one. Babylon's
   // hemispheric light is dimmer for the same number, and the board's stone is
   // near-black greyscale — every texture in the export averages under 15% grey,
   // because all the colour was always meant to come from the lights.
-  twilight.intensity = 2.1;
+  twilight.intensity = 2.6 * scale;
 
   const hearth = new PointLight('hearth-light', new Vector3(0, 3.2, 0), scene);
   hearth.diffuse = new Color3(0.949, 0.569, 0.239);
   hearth.range = 30;
-  hearth.intensity = HEARTH_BASE;
+  hearth.intensity = HEARTH_BASE * scale;
 
   const gate = new PointLight('gate-light', new Vector3(9.6, 2.2, 0), scene);
   gate.diffuse = new Color3(0.878, 0.416, 0.659);
   gate.range = 14;
-  gate.intensity = GATE_BASE;
+  gate.intensity = GATE_BASE * scale;
 
   // Direction, not position: the manifest gives where the moon *is*, so the
   // light travels from there towards the arena.
   const moon = new DirectionalLight('moon-rim', new Vector3(8, -12, 6), scene);
   moon.diffuse = new Color3(0.431, 0.659, 0.784);
-  moon.intensity = 1.1;
+  moon.intensity = 1.35 * scale;
 
   return {
     setWaveActive: (active) => {
-      hearth.intensity = active ? HEARTH_WAVE : HEARTH_BASE;
-      gate.intensity = active ? GATE_WAVE : GATE_BASE;
+      hearth.intensity = (active ? HEARTH_WAVE : HEARTH_BASE) * scale;
+      gate.intensity = (active ? GATE_WAVE : GATE_BASE) * scale;
     },
     dispose: () => {
       twilight.dispose();
