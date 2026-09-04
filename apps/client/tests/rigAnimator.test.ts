@@ -152,10 +152,25 @@ describe('createRigAnimator', () => {
     expect(angleBetween(wound, limbDirection(arm))).toBeGreaterThan(Math.PI / 4);
   });
 
-  it('folds the body over when defeated, and keeps it down', () => {
+  it('folds the body forwards when defeated, and keeps it down', () => {
+    /*
+     * Asserted against the attack's direction rather than against a sign.
+     *
+     * The rig's forward is a property of the asset, and writing `> 0.5` here
+     * pinned the test to whichever way this one happened to face — so when the
+     * character turned out to be walking backwards and the limb direction was
+     * corrected, a test about *falling over* failed. What actually matters is
+     * that a body folds the same way its hammer swings: forwards.
+     */
+    const attacker = buildRig();
+    const attacking = createRigAnimator(attacker.root);
+    for (let step = 0; step < 20; step += 1) {
+      attacking?.update('attack', 1 / 30);
+    }
+    const forwards = Math.sign(attacker.joint('shoulder_R').rotation.x);
+
     const rig = buildRig();
     const animator = createRigAnimator(rig.root);
-
     for (let step = 0; step < 30; step += 1) {
       animator?.update('defeated', 1 / 30);
     }
@@ -165,7 +180,8 @@ describe('createRigAnimator', () => {
       animator?.update('defeated', 1 / 30);
     }
 
-    expect(folded).toBeGreaterThan(0.5);
+    expect(Math.abs(folded)).toBeGreaterThan(0.5);
+    expect(Math.sign(folded)).toBe(forwards);
     expect(rig.joint('torso').rotation.x).toBeCloseTo(folded, 5);
   });
 });

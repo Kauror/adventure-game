@@ -137,9 +137,25 @@ export function createRigAnimator(root: TransformNode): RigAnimator | null {
   const restX = (joint: TransformNode | null): number =>
     joint === null ? 0 : (rest.get(joint) ?? 0);
 
+  /*
+   * Which way a positive X rotation swings a limb, for this rig.
+   *
+   * Every clip below is written as though a positive angle moves a limb
+   * *forward*, toward the character's face. On this rig it does the opposite,
+   * and the sign lives here so the clips can stay readable rather than being
+   * peppered with minus signs.
+   *
+   * Measured, not reasoned: with the character facing north the hand followed
+   * through from z 12.13 to 12.83 — northward, away from a face that sits half
+   * a metre south of the back of the head. The hammer was swinging behind the
+   * body, and the character walked backwards, which is exactly what was
+   * reported from a real session.
+   */
+  const LIMB_FORWARD = -1;
+
   const setX = (joint: TransformNode | null, radians: number): void => {
     if (joint !== null) {
-      joint.rotation.x = restX(joint) + radians;
+      joint.rotation.x = restX(joint) + radians * LIMB_FORWARD;
     }
   };
 

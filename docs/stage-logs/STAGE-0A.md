@@ -1793,3 +1793,60 @@ remains the dial; the default now assumes a phone.
 ### Cost
 
 **345 tests.**
+
+## 0A.23 — the character was facing backwards, and two errors were hiding each other
+
+Reported from the phone: the character walks backwards and its head is on the
+wrong way round.
+
+### Two wrongs that read as a right
+
+`MODEL_FORWARD_OFFSET` was **one constant for every asset**, measured for the
+Kenney rig by playing its melee clip and checking which way the arm travelled.
+The child's character was then dropped in beside it and silently inherited a
+value nobody had measured for it.
+
+Worse, the measurement could not have caught it. That test needs animation
+**clips**, which this character does not have, and it assumes the animator's own
+sign convention is correct — and `rigAnimator` had it backwards, because it was
+written and "verified" during the stage in which it could not move a joint at
+all (0A.14). So the model faced south while the animator swung the hammer north,
+and the swing test, asked which way the arm travelled, answered "north, correct".
+Two errors, cancelling just well enough to look right.
+
+### The measurement that cannot lie
+
+The head is a box with named faces. With the character facing north:
+
+```
+head_front  z = 12.25      head_back  z = 12.75      character z = 12.50
+```
+
+The face was half a metre **south** of the back of the head. No animation
+involved, nothing to assume.
+
+One trap worth recording: a box exported with six material groups shares a
+single vertex buffer across all six primitives, so averaging `position` returns
+the same centre for every face and says nothing. The indices are what select a
+face — the first three attempts at this measurement all returned identical
+centres and looked like a broken model rather than a broken query.
+
+### The fixes
+
+- **Facing is per asset.** `forwardOffsetRadians` is a load option: the hero is
+  `0`, the foe is `Math.PI`. Treating it as a project-wide constant is precisely
+  what let a new character inherit an unmeasured value.
+- **`LIMB_FORWARD` in the animator.** The clips are written as though a positive
+  angle moves a limb forward; on this rig it does the opposite, and the sign now
+  lives in one named place instead of being scattered through five clips.
+- `docs/art-pipeline.md` now leads with the head measurement and explains why
+  the swing test is the weaker one.
+
+A test had to change too, and its old form was the same mistake in miniature:
+"folds the body over when defeated" asserted `rotation.x > 0.5`, pinning a test
+about _falling over_ to whichever way this particular asset happened to face. It
+asserts the relationship now — a body folds the same way its hammer swings.
+
+### Cost
+
+**345 tests.**

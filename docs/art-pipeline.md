@@ -102,9 +102,52 @@ for (let i = 0; i <= 10; i++) {
 }
 ```
 
-A punch travels forward. If the largest excursion is **positive**,
-`MODEL_FORWARD_OFFSET` is right; if negative, it is wrong by π. For the current
-asset it reaches +0.43 m forward against a 0.34 m backswing, hence `Math.PI`.
+A punch travels forward. If the largest excursion is **positive**, the offset is
+right; if negative, it is wrong by π. The Kenney foe reaches +0.43 m forward
+against a 0.34 m backswing, hence `Math.PI` for that asset.
+
+### Prefer the head, when the rig has one
+
+The swing test above only works on a rig with **clips**, and it silently assumes
+the animation's own sign convention is right. Both assumptions failed on the
+child's character: it has no clips, its code-driven animator had the opposite
+sign, and the two errors cancelled well enough that the swing test read as
+correct while the character walked backwards with its face pointing behind it.
+
+If the head is a box with named faces — this one has `head_front`, `head_back`,
+`head_left`, `head_right` — measure that instead. It cannot lie, because it does
+not depend on any animation:
+
+```js
+// Face the character north (heading 0), then:
+function faceCentre(mesh) {
+  const p = mesh.getVerticesData('position'),
+    idx = mesh.getIndices();
+  mesh.computeWorldMatrix(true);
+  const m = mesh.getWorldMatrix().m,
+    seen = new Set();
+  let z = 0,
+    n = 0;
+  for (const i of idx) {
+    if (seen.has(i)) continue;
+    seen.add(i);
+    z += m[2] * p[i * 3] + m[6] * p[i * 3 + 1] + m[10] * p[i * 3 + 2] + m[14];
+    n++;
+  }
+  return z / n;
+}
+```
+
+Run it for the meshes whose materials are `head_front` and `head_back`. **The
+front must sit at the greater z.** Note the indices: a box exported with six
+material groups shares one vertex buffer across all six primitives, so averaging
+`position` without them returns the same centre for every face and tells you
+nothing.
+
+**The offset is a property of the asset, not of the project.** It is passed per
+model as `forwardOffsetRadians`; the hero is `0` and the foe is `Math.PI`.
+Treating it as one shared constant is what let a new character inherit a value
+nobody had measured for it.
 
 ## Swapping the asset
 

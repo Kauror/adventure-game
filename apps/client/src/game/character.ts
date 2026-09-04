@@ -40,18 +40,21 @@ import { CLIP_NAMES, isLooping } from './characterClips';
 const SOCKET_NODES = ['hand_R', 'arm-right'] as const;
 
 /**
- * Rotation applied to the model so its front matches the game's heading of 0,
- * which points north (+Z).
+ * Default rotation applied to a model so its front matches the game's heading of
+ * 0, which points north (+Z).
  *
  * Verified rather than derived. glTF is right-handed and Babylon is not, so the
- * loader inserts a `__root__` with a mirrored Z — which makes the handedness
+ * loader inserts a `__root__` with a mirrored Z, which makes the handedness
  * argument unreliable on paper and makes the node named `arm-right` appear on
- * the visually opposite side. The measurement that settles it is in
- * `docs/art-pipeline.md`: face the character north, play the melee clip, and
- * check which way the arm actually travels. It reaches +0.43 m forward against
- * a 0.34 m backswing, so this value is right for this asset.
+ * the visually opposite side.
+ *
+ * **This is a property of each asset, and treating it as one constant was a
+ * bug.** π was measured for the Kenney rig; the child's character was then
+ * dropped in beside it and silently inherited a value nobody had measured for
+ * it, so it walked backwards with its face pointing the wrong way. Assets carry
+ * their own value now, and `docs/art-pipeline.md` has the measurement.
  */
-const MODEL_FORWARD_OFFSET = Math.PI;
+const DEFAULT_FORWARD_OFFSET = Math.PI;
 
 export interface Character {
   /** Parent this to place the character in the world. */
@@ -111,6 +114,15 @@ export interface Character {
 export interface CharacterOptions {
   /** Metres from the floor to the top of the head. */
   readonly heightMetres: number;
+  /**
+   * Rotation about Y that turns this asset's front to face north.
+   *
+   * Measure it, never guess it: face the character north and check which way
+   * `head_front` sits relative to `head_back`, or which way the melee arm
+   * travels. Both are one query in the browser and neither can be reasoned out
+   * from the file.
+   */
+  readonly forwardOffsetRadians?: number;
 }
 
 /**
@@ -123,7 +135,7 @@ export interface CharacterOptions {
 export async function loadCharacter(
   scene: Scene,
   url: string,
-  { heightMetres }: CharacterOptions,
+  { heightMetres, forwardOffsetRadians = DEFAULT_FORWARD_OFFSET }: CharacterOptions,
 ): Promise<Character> {
   // Awaited before the load, so registration is ordered by construction.
   await registerGltfLoader();
@@ -159,7 +171,7 @@ export async function loadCharacter(
   // Verified on the device rather than derived: glTF's handedness conversion
   // makes it genuinely ambiguous on paper, and a character that moonwalks is
   // obvious in one glance and invisible in any amount of reasoning.
-  fitted.rotation.y = MODEL_FORWARD_OFFSET;
+  fitted.rotation.y = forwardOffsetRadians;
 
   const groups = new Map<string, AnimationGroup>();
   for (const group of entries.animationGroups) {

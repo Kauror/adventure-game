@@ -91,6 +91,17 @@ const HERO_MODEL = '/models/kid01.glb';
 const FOE_MODEL = '/models/foe.glb';
 
 /**
+ * Which way each model faces, measured on the device.
+ *
+ * The child's character is authored facing north already; the Kenney foe is
+ * built facing the other way. These were one constant until the hero walked
+ * backwards with its head on the wrong way round — `head_front` sat half a
+ * metre south of `head_back` while the game believed the character faced north.
+ */
+const HERO_FORWARD_RADIANS = 0;
+const FOE_FORWARD_RADIANS = Math.PI;
+
+/**
  * The device-baseline measurement scene, when asked for (roadmap 0A.12).
  *
  * Imported dynamically and gated behind a query parameter, so nothing about it —
@@ -139,8 +150,14 @@ async function start(): Promise<() => void> {
   // Both paths end with the same thing — somewhere to stand and a list of
   // places that should be on fire.
   const [heroModel, foeModel, scenery] = await Promise.all([
-    loadCharacter(scene, HERO_MODEL, { heightMetres: PLAYER_HEIGHT_METRES }),
-    loadCharacter(scene, FOE_MODEL, { heightMetres: ENEMY_HEIGHT_METRES }),
+    loadCharacter(scene, HERO_MODEL, {
+      heightMetres: PLAYER_HEIGHT_METRES,
+      forwardOffsetRadians: HERO_FORWARD_RADIANS,
+    }),
+    loadCharacter(scene, FOE_MODEL, {
+      heightMetres: ENEMY_HEIGHT_METRES,
+      forwardOffsetRadians: FOE_FORWARD_RADIANS,
+    }),
     region.sceneModel === undefined
       ? createProps(scene, region)
       : createArenaScene(scene, region.sceneModel, {
