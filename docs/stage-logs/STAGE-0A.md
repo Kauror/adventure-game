@@ -1477,3 +1477,44 @@ open question.
 
 **332 tests** (170 game-core + 162 client), down from 342: the nine frame-gate
 tests that could never fail were replaced by four that can.
+
+## 0A.17 — camera 10% closer, and the zoom finally reports itself
+
+The frame-cap fix landed: "oh its much faster now". The slow motion was the
+whole of it.
+
+### Camera
+
+9 m to **8.1 m** vertical extent, at the player's request. This is the second
+correction in the same direction and for the reason 0A.15 set out: the framing
+was chosen against a 1.8 m box, and the character has been a 1.3 m child since
+0A.3.
+
+It cannot go much further. The enemy aggroes from **8 m**, and a frame shorter
+than that lets something charge in from off-screen — a test pins that floor, and
+8.1 m sits just above it deliberately rather than by luck.
+
+### The zoom bug is instrumented, not fixed
+
+Three attempts at _preventing_ accidental zoom have now failed on a real iPhone,
+and every one was a guess made on a desktop that cannot reproduce it. The last
+one made it worse and was withdrawn.
+
+The number that would settle it — `visualViewport.scale` — has been in the debug
+readout since 0A.1 and has never been read during a session that went wrong.
+That is not carelessness: **reaching the debug readout means getting past the
+broken zoom first**, and it is behind a four-tap corner gesture on a page whose
+touch handling is the thing that is broken.
+
+So the game now reports it unprompted. A page above 1.02x shows a banner with
+the figure and how to undo it. This is player-facing on purpose and goes through
+the i18n catalogue like everything else: a zoomed page is unplayable, and a
+child cannot report a number that only exists behind a developer flag.
+
+No claim is made that this fixes anything. It converts "the zoom is broken" into
+"the zoom is broken and it says 2.30x", which is the difference between a fourth
+guess and a diagnosis.
+
+### Cost
+
+**332 tests.** Two new i18n keys.

@@ -16,6 +16,14 @@ export const et = {
   // of the players cannot read yet.
   'orientation.rotateToLandscape': 'Pööra seadet',
 
+  // Shown only when the browser has zoomed the page, which on iOS it does by
+  // itself and then remembers. Deliberately player-facing rather than a debug
+  // line: a zoomed page is unplayable, three attempts at preventing it have
+  // failed, and a child cannot report a number that is only visible behind a
+  // developer flag.
+  'zoom.pageZoomed': 'Leht on suurendatud',
+  'zoom.pinchToReset': 'Näpista kahe sõrmega väiksemaks',
+
   'region.testArena.name': 'Prooviareen',
 
   // Development-only coordinate readout. Not player-facing, but it still goes

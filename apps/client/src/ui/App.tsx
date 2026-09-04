@@ -59,6 +59,54 @@ function usePortrait(): boolean {
 }
 
 /**
+ * The browser's own page zoom, as a multiplier.
+ *
+ * On screen because three separate attempts to *prevent* accidental zoom have
+ * now failed on a real iPhone, and every one of them was a guess: the number
+ * that would have settled it has been available in the debug readout since
+ * 0A.1 and was never read during a session that went wrong, because reaching
+ * the debug readout means getting past the broken zoom first.
+ *
+ * So the game reports it itself, unprompted. A page at 1.00x says nothing; a
+ * page that is zoomed says so, with the figure, which turns "the zoom is
+ * broken" into a bug report that can be acted on.
+ *
+ * `visualViewport` is the only honest source — `devicePixelRatio` moves with
+ * zoom on some browsers and not others, and `innerWidth` moves for several
+ * unrelated reasons.
+ */
+function usePageZoom(): number {
+  const [scale, setScale] = useState<number>(() => window.visualViewport?.scale ?? 1);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (viewport === null || viewport === undefined) {
+      return undefined;
+    }
+
+    const update = (): void => {
+      setScale(viewport.scale);
+    };
+
+    // `resize` is the one that fires on a pinch; `scroll` catches the pan that
+    // usually follows, where the scale can settle at a different value.
+    viewport.addEventListener('resize', update);
+    viewport.addEventListener('scroll', update);
+    update();
+
+    return () => {
+      viewport.removeEventListener('resize', update);
+      viewport.removeEventListener('scroll', update);
+    };
+  }, []);
+
+  return scale;
+}
+
+/** Below this the page is not meaningfully zoomed and nothing is said. */
+const ZOOM_NOTICE_THRESHOLD = 1.02;
+
+/**
  * Whether the debug tools are showing.
  *
  * Off unless asked for: a child must see the game, not a wall of numbers.
@@ -250,6 +298,7 @@ export interface AppProps {
  */
 export function App({ region, player, enemy, input, diagnostics, audio, assist }: AppProps) {
   const isPortrait = usePortrait();
+  const pageZoom = usePageZoom();
   const [debugVisible, toggleDebug] = useDebugVisible();
   const vitals = useVitals(player);
   const { snapshot, reading, enemyState, live } = useReadout(
@@ -363,6 +412,15 @@ export function App({ region, player, enemy, input, diagnostics, audio, assist }
         <div class="ui-orientation-notice">
           <RotateIcon />
           <div>{t('orientation.rotateToLandscape')}</div>
+        </div>
+      ) : null}
+
+      {pageZoom > ZOOM_NOTICE_THRESHOLD ? (
+        <div class="ui-zoom-notice">
+          <strong>
+            {t('zoom.pageZoomed')} {pageZoom.toFixed(2)}×
+          </strong>
+          <div>{t('zoom.pinchToReset')}</div>
         </div>
       ) : null}
     </div>

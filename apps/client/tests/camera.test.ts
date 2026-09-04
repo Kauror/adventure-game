@@ -69,7 +69,7 @@ describe('GAME_CAMERA', () => {
     // 9 m — about 25% closer — with the old value still reachable as
     // `?zoom=wide` for comparison.
     expect(GAME_CAMERA.tiltDegrees).toBe(55);
-    expect(GAME_CAMERA.verticalExtentMetres).toBe(9);
+    expect(GAME_CAMERA.verticalExtentMetres).toBe(8.1);
   });
 
   it('still frames more than the fight itself', () => {
@@ -88,8 +88,8 @@ describe('GAME_CAMERA', () => {
 
 describe('extentFromSearch', () => {
   it('defaults to the settled framing', () => {
-    expect(extentFromSearch('')).toBe(9);
-    expect(extentFromSearch('?debug=1')).toBe(9);
+    expect(extentFromSearch('')).toBe(8.1);
+    expect(extentFromSearch('?debug=1')).toBe(8.1);
   });
 
   it('still understands the old wide comparison', () => {
@@ -104,9 +104,9 @@ describe('extentFromSearch', () => {
   });
 
   it('ignores nonsense rather than producing a degenerate camera', () => {
-    expect(extentFromSearch('?zoom=0')).toBe(9);
-    expect(extentFromSearch('?zoom=-4')).toBe(9);
-    expect(extentFromSearch('?zoom=500')).toBe(9);
-    expect(extentFromSearch('?zoom=lähedale')).toBe(9);
+    expect(extentFromSearch('?zoom=0')).toBe(8.1);
+    expect(extentFromSearch('?zoom=-4')).toBe(8.1);
+    expect(extentFromSearch('?zoom=500')).toBe(8.1);
+    expect(extentFromSearch('?zoom=lähedale')).toBe(8.1);
   });
 });

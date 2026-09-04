@@ -26,7 +26,12 @@ import { orthoBounds, tiltToBeta } from './cameraMath';
  * The tilt stays at 55°: steep enough that 1.6 m walls hide very little,
  * without flattening silhouettes into top-down blobs.
  */
-const NEAR_EXTENT_METRES = 9;
+// 9 m after the first adult playtest, then 10% closer again once the 1.8 m box
+// became a 1.3 m child and the arena grew to 32x22: less of the arena on screen,
+// and the character back to a size that reads. It cannot go much below this —
+// the enemy aggroes from 8 m, and a frame shorter than that lets something
+// charge in from off-screen.
+const NEAR_EXTENT_METRES = 8.1;
 const WIDE_EXTENT_METRES = 12;
 
 /**
