@@ -1556,3 +1556,59 @@ It is at least the first time one was caught before being committed.
 ### Cost
 
 **333 tests.**
+
+## 0A.19 — the zoom bug, measured at last: 5.00×
+
+A photograph of the phone, with the banner from 0A.17 on it reading **`5.00×`**.
+Four attempts had been made at this bug without anyone once knowing what the
+scale was.
+
+### What the number says
+
+5.00 is WebKit's maximum page zoom, and the route to it is specific: double-tap
+smart zoom fits the **tapped element** to the screen width. The action buttons
+are 68 px circles on a ~390 px screen. 390 / 68 ≈ 5.7, clamped to 5.
+
+So it is the attack button, double-tapped, during exactly the fast tapping the
+game is made of. `touch-action: none` is set on every element in `#app` and does
+not stop it in this browser.
+
+### Stop preventing; start undoing
+
+Four preventions failed, and each one was a guess about a gesture that cannot be
+reproduced on a desktop. Correcting the _result_ is a different kind of fix, and
+strictly better in three ways:
+
+- it does not care **how** the zoom happened, so it also covers a stray pinch and
+  the per-site zoom iOS restores from a previous session — the one that made a
+  home-screen install unopenable in 0A.10;
+- it **cannot trap anyone**. That earlier fix pinned `maximum-scale` in the
+  markup permanently, so a phone that came up zoomed had every escape disabled.
+  Here the clamp lives for 350 ms and the original attribute is put back, which
+  was verified rather than assumed: the viewport goes to
+  `maximum-scale=1, user-scalable=no` and then returns exactly to
+  `width=device-width, initial-scale=1, viewport-fit=cover`;
+- it is **measurable**, because the banner keeps reporting the scale.
+
+The correction waits 500 ms after the scale stops changing, so it never fights a
+pinch in progress — the viewport fires `resize` throughout a gesture and each one
+pushes the timer back.
+
+### The banner was also broken
+
+At 5× it rendered five times too large and ran off both edges: unreadable at
+precisely the moment it mattered, which the photograph shows better than any
+description. It is now counter-scaled by `1 / zoom`, so it stays the size it was
+drawn at whatever the page is doing.
+
+### What is not verified
+
+That WebKit actually snaps the scale back when the viewport is clamped. The
+mechanism runs end to end here — detect, clamp, restore — but desktop Chrome does
+not implement iOS's page zoom, so the last link in the chain is the phone's to
+confirm. If the banner appears and _stays_, the clamp does not work on this
+browser and the next move is a different lever, not a fifth guess.
+
+### Cost
+
+**339 tests.**

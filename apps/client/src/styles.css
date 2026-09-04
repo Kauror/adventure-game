@@ -519,7 +519,10 @@ body {
   position: absolute;
   top: calc(var(--ui-safe-top) + 8px);
   left: 50%;
+  /* Overridden inline to counter the page zoom; this is the unzoomed case. */
   transform: translateX(-50%);
+  transform-origin: top center;
+  max-width: 90vw;
   padding: 8px 14px;
   border-radius: 8px;
   background: rgb(120 30 30 / 88%);

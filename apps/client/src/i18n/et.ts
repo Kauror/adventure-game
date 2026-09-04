@@ -22,7 +22,7 @@ export const et = {
   // failed, and a child cannot report a number that is only visible behind a
   // developer flag.
   'zoom.pageZoomed': 'Leht on suurendatud',
-  'zoom.pinchToReset': 'Näpista kahe sõrmega väiksemaks',
+  'zoom.resetting': 'Parandan…',
 
   'region.testArena.name': 'Prooviareen',
 

@@ -11,6 +11,7 @@ import type { Player, PlayerSnapshot, PlayerVitals } from '../game/player';
 import type { GameInput, InputReading } from '../input/createInput';
 import { tryCapturePointer, tryReleasePointer } from '../input/pointerCapture';
 import { t } from '../i18n';
+import { ZOOM_THRESHOLD, createZoomGuard, readPageZoom } from '../input/pageZoom';
 import { DebugPanel } from './DebugPanel';
 
 const PORTRAIT_QUERY = '(orientation: portrait)';
@@ -59,52 +60,27 @@ function usePortrait(): boolean {
 }
 
 /**
- * The browser's own page zoom, as a multiplier.
+ * The browser's own page zoom, and a guard that undoes it.
  *
- * On screen because three separate attempts to *prevent* accidental zoom have
- * now failed on a real iPhone, and every one of them was a guess: the number
- * that would have settled it has been available in the debug readout since
- * 0A.1 and was never read during a session that went wrong, because reaching
- * the debug readout means getting past the broken zoom first.
- *
- * So the game reports it itself, unprompted. A page at 1.00x says nothing; a
- * page that is zoomed says so, with the figure, which turns "the zoom is
- * broken" into a bug report that can be acted on.
- *
- * `visualViewport` is the only honest source — `devicePixelRatio` moves with
- * zoom on some browsers and not others, and `innerWidth` moves for several
- * unrelated reasons.
+ * Reported on screen because four attempts to *prevent* accidental zoom failed,
+ * and the figure that finally identified the cause — `5.00×`, WebKit's maximum,
+ * which is what double-tapping a 68 px button on a 390 px screen produces — only
+ * arrived once the game said it out loud. The number stays visible while a
+ * correction is pending, so a correction that does not work is distinguishable
+ * from one that never ran.
  */
 function usePageZoom(): number {
-  const [scale, setScale] = useState<number>(() => window.visualViewport?.scale ?? 1);
+  const [scale, setScale] = useState<number>(() => readPageZoom());
 
   useEffect(() => {
-    const viewport = window.visualViewport;
-    if (viewport === null || viewport === undefined) {
-      return undefined;
-    }
-
-    const update = (): void => {
-      setScale(viewport.scale);
-    };
-
-    // `resize` is the one that fires on a pinch; `scroll` catches the pan that
-    // usually follows, where the scale can settle at a different value.
-    viewport.addEventListener('resize', update);
-    viewport.addEventListener('scroll', update);
-    update();
-
+    const guard = createZoomGuard(setScale);
     return () => {
-      viewport.removeEventListener('resize', update);
-      viewport.removeEventListener('scroll', update);
+      guard.dispose();
     };
   }, []);
 
   return scale;
 }
-
-/** Below this the page is not meaningfully zoomed and nothing is said. */
-const ZOOM_NOTICE_THRESHOLD = 1.02;
 
 /**
  * Whether the debug tools are showing.
@@ -415,12 +391,18 @@ export function App({ region, player, enemy, input, diagnostics, audio, assist }
         </div>
       ) : null}
 
-      {pageZoom > ZOOM_NOTICE_THRESHOLD ? (
-        <div class="ui-zoom-notice">
+      {pageZoom > ZOOM_THRESHOLD ? (
+        // Counter-scaled: the notice is part of the page, so at 5x it rendered
+        // five times too large and ran off both edges — unreadable exactly when
+        // it was needed. Dividing by the zoom keeps it the size it was drawn.
+        <div
+          class="ui-zoom-notice"
+          style={{ transform: `translateX(-50%) scale(${1 / pageZoom})` }}
+        >
           <strong>
             {t('zoom.pageZoomed')} {pageZoom.toFixed(2)}×
           </strong>
-          <div>{t('zoom.pinchToReset')}</div>
+          <div>{t('zoom.resetting')}</div>
         </div>
       ) : null}
     </div>
