@@ -29,13 +29,50 @@ import { orthoBounds, tiltToBeta } from './cameraMath';
 const NEAR_EXTENT_METRES = 9;
 const WIDE_EXTENT_METRES = 12;
 
+/**
+ * The framing is fixed in **metres**, and the character is not.
+ *
+ * This matters more than it looks. The playtest that chose 9 m was played with
+ * a 1.8 m box: the player stood one fifth of the screen tall. The box was then
+ * replaced with a real character the artist authored at 1.3 m — a child, and
+ * correctly so — and the metre count stayed where it was. The player is now
+ * 14% of the screen instead of 20%, roughly a **third smaller**, without a
+ * single camera value being touched.
+ *
+ * Apparent speed is judged against the thing that is moving rather than against
+ * metres, so a smaller character crossing a larger arena reads as slower even
+ * though `maxSpeedMetresPerSecond` has not changed. That is a real effect and
+ * not a matter of taste.
+ *
+ * It is left at 9 m rather than quietly tightened, because the enemy aggroes
+ * from 8 m and a frame shorter than that lets something charge from off-screen
+ * — which is a worse bug than a distant camera. Settling this properly is a
+ * decision to make on the device, so `?zoom=` takes a number of metres.
+ */
+const MIN_EXTENT_METRES = 4;
+const MAX_EXTENT_METRES = 40;
+
+/** `?zoom=wide` for the old framing, `?zoom=7.5` for anything else. */
+export function extentFromSearch(search: string): number {
+  const requested = new URLSearchParams(search).get('zoom');
+  if (requested === null) {
+    return NEAR_EXTENT_METRES;
+  }
+  if (requested === 'wide') {
+    return WIDE_EXTENT_METRES;
+  }
+
+  const parsed = Number.parseFloat(requested);
+  return Number.isFinite(parsed) && parsed >= MIN_EXTENT_METRES && parsed <= MAX_EXTENT_METRES
+    ? parsed
+    : NEAR_EXTENT_METRES;
+}
+
 function requestedExtent(): number {
   if (typeof window === 'undefined') {
     return NEAR_EXTENT_METRES;
   }
-  return new URLSearchParams(window.location.search).get('zoom') === 'wide'
-    ? WIDE_EXTENT_METRES
-    : NEAR_EXTENT_METRES;
+  return extentFromSearch(window.location.search);
 }
 
 export const GAME_CAMERA: CameraConfig = {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { GAME_CAMERA } from '../src/game/camera';
+import { GAME_CAMERA, extentFromSearch } from '../src/game/camera';
 import { degreesToRadians, orthoBounds, tiltToBeta } from '../src/game/cameraMath';
 
 describe('tiltToBeta', () => {
@@ -83,5 +83,30 @@ describe('GAME_CAMERA', () => {
     expect(GAME_CAMERA.tiltDegrees).toBeGreaterThan(0);
     expect(GAME_CAMERA.tiltDegrees).toBeLessThan(90);
     expect(GAME_CAMERA.verticalExtentMetres).toBeGreaterThan(0);
+  });
+});
+
+describe('extentFromSearch', () => {
+  it('defaults to the settled framing', () => {
+    expect(extentFromSearch('')).toBe(9);
+    expect(extentFromSearch('?debug=1')).toBe(9);
+  });
+
+  it('still understands the old wide comparison', () => {
+    expect(extentFromSearch('?zoom=wide')).toBe(12);
+  });
+
+  it('takes a number of metres, so framing can be settled on the device', () => {
+    // The camera was tuned against a 1.8 m box and the character is now 1.3 m,
+    // which is the whole reason this exists.
+    expect(extentFromSearch('?zoom=7.5')).toBe(7.5);
+    expect(extentFromSearch('?zoom=6.5&debug=1')).toBe(6.5);
+  });
+
+  it('ignores nonsense rather than producing a degenerate camera', () => {
+    expect(extentFromSearch('?zoom=0')).toBe(9);
+    expect(extentFromSearch('?zoom=-4')).toBe(9);
+    expect(extentFromSearch('?zoom=500')).toBe(9);
+    expect(extentFromSearch('?zoom=lähedale')).toBe(9);
   });
 });

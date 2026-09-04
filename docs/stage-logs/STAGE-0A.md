@@ -1366,3 +1366,36 @@ of a double-tap. It is `null` now.
 The zoom fix is reasoned, not observed — it cannot be reproduced on a desktop.
 If it recurs, the next step is instrumenting `visualViewport.scale` on the phone
 to establish whether it is page zoom at all, rather than guessing a third time.
+
+## 0A.15 — "it feels slow, is it zoomed out?"
+
+The player's own diagnosis, and it is right. Two things shrank the picture
+without anyone changing a camera value.
+
+**The character got a third smaller.** The playtest that settled 9 m was played
+with a 1.8 m box: the player stood one fifth of the screen tall. The box became
+a real character authored at 1.3 m — a child, and correctly so — and the metre
+count stayed. The player is now 14% of the screen instead of 20%.
+
+**The arena got two and a half times bigger.** 20x14 to 32x22. Crossing it at an
+unchanged 4.5 m/s went from about 4.4 s to about 7.1 s, and
+`maxSpeedMetresPerSecond`'s own comment says the number was chosen so that "the
+20 x 14 m test arena takes a few seconds to cross".
+
+Apparent speed is judged against the thing that is moving, not against metres.
+A smaller character crossing a larger, emptier floor reads as slower with every
+simulation number identical. That is a real effect, not a matter of taste.
+
+It is **not** frame rate: 57 active meshes and 1.18 ms per frame locally after
+0A.13. And "rougher" has a separate and simpler cause — the render ratio is
+capped at 2x where the phone offers 3x, which is exactly a slightly chunkier
+image.
+
+### What was not done, and why
+
+The obvious move is to tighten the camera, and it is wrong as a silent default:
+**the enemy aggroes from 8 m**, and a frame shorter than that lets something
+charge from off-screen. A test already pins that floor, which is why this got
+caught before shipping rather than after. Framing is now settleable on the
+device instead — `?zoom=` takes metres — because this is a judgement to make
+while holding the phone, not while reading the source.
