@@ -1443,7 +1443,9 @@ that constant is gone.
 There were nine tests on the frame gate. They were good tests. They simulated
 frame arrivals at 60 and 120 Hz, checked the drawn count was 30, checked the
 reported rate was 30 rather than 60, checked stalls and the first frame. All of
-them passed, for months, while the game ran at half speed.
+them passed while the game ran at half speed — from the cap landing at 10:59 on
+2026-09-03 to the fix at 06:05 the next morning, which is one playtest and one
+report, not a long rot.
 
 **Not one of them could have failed**, because every one measured how often
 frames were drawn and the bug was in what each frame was _told about time_.
