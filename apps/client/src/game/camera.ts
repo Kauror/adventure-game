@@ -26,12 +26,25 @@ import { orthoBounds, tiltToBeta } from './cameraMath';
  * The tilt stays at 55°: steep enough that 1.6 m walls hide very little,
  * without flattening silhouettes into top-down blobs.
  */
-// 9 m after the first adult playtest, then 10% closer again once the 1.8 m box
-// became a 1.3 m child and the arena grew to 32x22: less of the arena on screen,
-// and the character back to a size that reads. It cannot go much below this —
-// the enemy aggroes from 8 m, and a frame shorter than that lets something
-// charge in from off-screen.
-const NEAR_EXTENT_METRES = 8.1;
+/*
+ * 12 m at first, 9 m after the adult playtest called the action "distant", 8.1 m
+ * once the 1.8 m box became a 1.3 m child, and 5.7 m at the player's request
+ * after that — another 30% in.
+ *
+ * The floor was long documented as 8 m, "because the enemy aggroes from 8 m".
+ * That reasoning was wrong, and it is worth saying why rather than quietly
+ * dropping it. Aggro is only where the enemy *notices* and begins walking, at
+ * 2.6 m/s against the player's 4.5 — it cannot ambush anyone, and it is welcome
+ * to start that walk off-screen and arrive in view. What genuinely must be
+ * visible is the **wind-up**, which begins at `attackRangeMetres` of 1.7 m and
+ * lasts 0.9 s, because PLAN §11 asks for anticipation rather than reaction.
+ *
+ * At a 55° tilt a vertical extent V covers V / sin(55°) of ground, so 5.7 m
+ * shows about 7 m of world — roughly ±3.5 m around the player, which holds the
+ * 1.7 m strike range with margin to spare. That is the real constraint, and it
+ * is now the one the tests check.
+ */
+const NEAR_EXTENT_METRES = 5.7;
 const WIDE_EXTENT_METRES = 12;
 
 /**

@@ -1,3 +1,4 @@
+import { DODGE, ENEMY } from '@adventure/game-core';
 import { describe, expect, it } from 'vitest';
 
 import { GAME_CAMERA, extentFromSearch } from '../src/game/camera';
@@ -69,14 +70,45 @@ describe('GAME_CAMERA', () => {
     // 9 m — about 25% closer — with the old value still reachable as
     // `?zoom=wide` for comparison.
     expect(GAME_CAMERA.tiltDegrees).toBe(55);
-    expect(GAME_CAMERA.verticalExtentMetres).toBe(8.1);
+    expect(GAME_CAMERA.verticalExtentMetres).toBe(5.7);
   });
 
-  it('still frames more than the fight itself', () => {
-    // A closer camera must not become a keyhole: the player has to see enough
-    // of the arena to read walls and plan a dodge, and the enemy aggroes from
-    // 8 m away. Anything under two tiles of margin around that is too tight.
-    expect(GAME_CAMERA.verticalExtentMetres).toBeGreaterThanOrEqual(8);
+  it('keeps the wind-up on screen, which is the constraint that matters', () => {
+    /*
+     * This assertion used to read `>= 8`, "because the enemy aggroes from 8 m",
+     * and that was the wrong rule. Aggro is only where the enemy notices the
+     * player and starts walking, at 2.6 m/s against a player who runs at 4.5 —
+     * it can begin that walk off-screen and arrive in view without ever being a
+     * surprise.
+     *
+     * What must be visible is the wind-up, which starts at `attackRangeMetres`
+     * and runs for `windUpSeconds`. PLAN §11 asks for anticipation rather than
+     * reaction, and a telegraph the player cannot see is exactly the bug the
+     * first playtest reported about the old circular one.
+     *
+     * At a tilt of θ from the horizon, an orthographic vertical extent V covers
+     * V / sin(θ) of ground — check it against the top-down case, where θ = 90°
+     * and the two are equal.
+     */
+    const groundSpan =
+      GAME_CAMERA.verticalExtentMetres / Math.sin(degreesToRadians(GAME_CAMERA.tiltDegrees));
+    const halfSpan = groundSpan / 2;
+
+    // The strike range, plus a metre so the swing is read rather than discovered.
+    expect(halfSpan).toBeGreaterThanOrEqual(ENEMY.attackRangeMetres + 1);
+  });
+
+  it('keeps a sidestep on screen, since that is the taught counter', () => {
+    // The telegraph is a 55-degree frontal wedge and the answer to it is to step
+    // out of the wedge, not to run: a 3 m dodge sideways must leave both fighters
+    // framed. Horizontal is the roomy axis — world X maps to screen without the
+    // tilt's foreshortening — so this is the assertion that has slack, and it is
+    // still worth pinning, because it is what stops the frame narrowing until
+    // the counter stops being readable.
+    const narrowLandscape = 16 / 9;
+    const bounds = orthoBounds(GAME_CAMERA.verticalExtentMetres, narrowLandscape);
+
+    expect(bounds.right).toBeGreaterThanOrEqual(DODGE.distanceMetres);
   });
 
   it('is a usable, non-degenerate camera', () => {
@@ -88,8 +120,8 @@ describe('GAME_CAMERA', () => {
 
 describe('extentFromSearch', () => {
   it('defaults to the settled framing', () => {
-    expect(extentFromSearch('')).toBe(8.1);
-    expect(extentFromSearch('?debug=1')).toBe(8.1);
+    expect(extentFromSearch('')).toBe(5.7);
+    expect(extentFromSearch('?debug=1')).toBe(5.7);
   });
 
   it('still understands the old wide comparison', () => {
@@ -104,9 +136,9 @@ describe('extentFromSearch', () => {
   });
 
   it('ignores nonsense rather than producing a degenerate camera', () => {
-    expect(extentFromSearch('?zoom=0')).toBe(8.1);
-    expect(extentFromSearch('?zoom=-4')).toBe(8.1);
-    expect(extentFromSearch('?zoom=500')).toBe(8.1);
-    expect(extentFromSearch('?zoom=lähedale')).toBe(8.1);
+    expect(extentFromSearch('?zoom=0')).toBe(5.7);
+    expect(extentFromSearch('?zoom=-4')).toBe(5.7);
+    expect(extentFromSearch('?zoom=500')).toBe(5.7);
+    expect(extentFromSearch('?zoom=lähedale')).toBe(5.7);
   });
 });

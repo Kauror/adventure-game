@@ -1518,3 +1518,41 @@ guess and a diagnosis.
 ### Cost
 
 **332 tests.** Two new i18n keys.
+
+## 0A.18 — camera another 30% in, and a floor that was wrong
+
+**8.1 m to 5.7 m** vertical extent, at the player's request. The character is now
+about a quarter of the screen tall rather than a seventh, which is roughly where
+the framing sat when the first playtest called it right.
+
+### The floor was documented, and the documentation was wrong
+
+The previous entry said the camera could not go below 8 m "because the enemy
+aggroes from 8 m", and a test enforced it. Both were wrong, and the mistake is
+instructive: aggro is only where the enemy **notices** the player and begins
+walking, at 2.6 m/s against a player who runs at 4.5. It cannot ambush anyone.
+It is perfectly free to start that walk off-screen and arrive in view.
+
+What actually has to be visible is the **wind-up**: it starts at
+`attackRangeMetres` of 1.7 m, runs for 0.9 s, and PLAN §11 asks for anticipation
+rather than reaction. A telegraph the player cannot see is precisely the bug the
+first playtest reported about the old circular one.
+
+At a tilt of θ an orthographic extent V covers V / sin(θ) of ground — which
+checks out against the top-down case, where θ = 90° and the two are equal. So
+5.7 m shows about 7 m of world, ±3.5 m around the player, holding the 1.7 m
+strike range with a metre and a half to spare.
+
+The test now asserts that, plus a second one: a 3 m **sidestep** must stay
+framed, because stepping out of the wedge is the taught counter and the reason
+the telegraph became a wedge in the first place. Both fail if the extent drops
+to 2.5 m, which was checked rather than assumed — the first draft of the dodge
+assertion reduced to `halfSpan >= attackRange`, the same statement as the line
+above it, and would have passed at any framing whatsoever.
+
+That is the fourth time this stage a test has been written that could not fail.
+It is at least the first time one was caught before being committed.
+
+### Cost
+
+**333 tests.**
